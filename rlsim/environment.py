@@ -5,6 +5,7 @@ Created on Tue Sep 13 17:32:08 2022
 @author: 17000
 """
 import os
+import urllib
 from contextlib import redirect_stdout
 from io import StringIO
 from typing import Dict, List, Tuple
@@ -53,11 +54,59 @@ class Environment:
                        **kwargs):
 
         if platform == 'mace':
-            from mace.calculators import mace_mp
+            from mace.calculators import MACECalculator
+            MACE_URLS = dict(
+                small="http://tinyurl.com/46jrkm3v",  # 2023-12-10-mace-128-L0_energy_epoch-249.model
+                medium="http://tinyurl.com/5yyxdm76",  # 2023-12-03-mace-128-L1_epoch-199.model
+                large="http://tinyurl.com/5f5yavf3",  # MACE_MPtrj_2022.9.model
+            )
 
+            def get_mace_mp_model_path(model: str | None = None, model_path: str | None = None) -> str:
+                """Get the default MACE MP model. Replicated from the MACE codebase,
+                Copyright (c) 2022 ACEsuit/mace and licensed under the MIT license.
+                Args:
+                    model (str, optional): MACE_MP model that you want to get.
+                        Defaults to None. Can be "small", "medium", "large", or a URL.
+                Raises:
+                    RuntimeError: raised if the model download fails and no local model is found
+                Returns:
+                    str: path to the model
+                """
+                if model in (None, "medium") and os.path.isfile(model_path):
+                    return model_path
+                elif model in (None, "small", "medium", "large") or str(model).startswith("https:"):
+                    try:
+                        checkpoint_url = (
+                            MACE_URLS.get(model, MACE_URLS["medium"])
+                            if model in (None, "small", "medium", "large")
+                            else model
+                        )
+                        cache_dir = os.path.expanduser("~/.cache/mace")
+                        checkpoint_url_name = "".join(
+                            c for c in os.path.basename(checkpoint_url) if c.isalnum() or c in "_"
+                        )
+                        model_path = f"{cache_dir}/{checkpoint_url_name}"
+                        if not os.path.isfile(model_path):
+                            os.makedirs(cache_dir, exist_ok=True)
+                            # download and save to disk
+                            urllib.request.urlretrieve(checkpoint_url, model_path)
+                        return model_path
+                    except Exception as exc:
+                        raise RuntimeError(
+                            "Model download from url failed"
+                        ) from exc
+                else:
+                    raise RuntimeError(
+                        "Model download failed and no local model found"
+                    )
+
+            model_path = get_mace_mp_model_path(model="medium", model_path=kwargs.get("model_path", None))
             # Suppress print statements in mace_mp function
-            with suppress_print():
-                calculator = mace_mp(model="medium", dispersion=False, default_dtype="float32", device=device)
+            calculator = MACECalculator(
+                model_paths=model_path, device=device, default_dtype=kwargs.get("default_type", "float32"), **kwargs
+            )
+            # with suppress_print():
+            #     calculator = mace_mp(model="medium", dispersion=False, default_dtype="float32", device=device)
                 
         elif platform == 'kimpy':
             from ase.calculators.kim.kim import KIM
@@ -275,3 +324,4 @@ class Environment:
         self.atoms.set_scaled_positions(pos_frac)
 
         return E, log_attempt_freq, int(not res)
+    
