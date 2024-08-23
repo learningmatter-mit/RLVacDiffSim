@@ -32,8 +32,8 @@ dynamic = ["version"]
 license = {text = "MIT"}
 requires-python = ">=3.9,<3.12"
 
-# [project.scripts]
-# rlsim = "vssr.cli.main:main"
+[project.scripts]
+rlsim = "rlsim.cli.main:main"
 
 [project.optional-dependencies]
 dev = ["black", "isort", "flake8"]
