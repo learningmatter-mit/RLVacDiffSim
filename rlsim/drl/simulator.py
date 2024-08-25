@@ -22,8 +22,8 @@ from rlsim.environment import Environment
 class RLSimulator:
     def __init__(self,
                  environment: Environment,
-                 model,
-                 model_params: Dict[str, float | bool] = {"alpha": 0.0,
+                 model=None,
+                 model_params: Dict[str, float | bool] | None = {"alpha": 0.0,
                                                           "beta": 1.0,
                                                           "dqn": True},
                  params: Dict[str, float | bool] = {"cutoff": 4.0,
@@ -58,9 +58,13 @@ class RLSimulator:
 
         return action, action_probs, Q
 
-    def step(self):
+    def step(self, random=False):
         action_space = get_action_space(self.env)
-        act_id, act_probs, _ = self.select_action(action_space)
+        if random:
+            act_id = np.random.choice(len(action_space))
+            act_probs = np.array([])
+        else:
+            act_id, act_probs, _ = self.select_action(action_space)
         action = action_space[act_id]
         info = {
             "act": act_id,

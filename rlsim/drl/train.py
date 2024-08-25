@@ -77,12 +77,11 @@ def train_DQN(settings):
                                 model=model,
                                 model_params=model_config["params"],
                                 params=train_config)
-        info = simulator.step()
-        replay_list.append(
-            Memory(q_params["alpha"], q_params["beta"], T=q_params["temperature"])
-        )
         for tstep in range(horizon):
-
+            info = simulator.step()
+            replay_list.append(
+                Memory(q_params["alpha"], q_params["beta"], T=q_params["temperature"])
+            )
             replay_list[-1].add(info)
 
             if tstep % 10 == 0 and tstep > 0:

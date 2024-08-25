@@ -11,7 +11,7 @@ from rlsim.environment import Environment
 from rlsim.utils.logger import setup_logger
 
 
-def deploy_RL(settings):
+def deploy_RL(settings, atoms_traj=None):
     with open(settings, "r") as f:
         config = toml.load(f)
         task = config["task"]
@@ -32,9 +32,12 @@ def deploy_RL(settings):
     horizon = deploy_config.pop("horizon")
     simulation_mode = deploy_config.pop("mode")
     simulation_input_params = deploy_config.pop("input_params")
-    poscar_dir = deploy_config.pop("poscar_dir")
-    n_poscars = deploy_config.pop("n_poscars")
-    pool = [f"{poscar_dir}/POSCAR_" + str(i) for i in range(0, n_poscars)]
+    if atoms_traj is not None:
+        pool = atoms_traj
+    else:
+        poscar_dir = deploy_config.pop("poscar_dir")
+        n_poscars = deploy_config.pop("n_poscars")
+        pool = [f"{poscar_dir}/POSCAR_" + str(i) for i in range(0, n_poscars)]
 
     if simulation_mode == "lss":
         El = []
