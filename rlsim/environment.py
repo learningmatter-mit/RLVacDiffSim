@@ -16,8 +16,6 @@ from ase.mep import NEB
 from ase.optimize import BFGS, FIRE, MDMin
 from numpy.linalg import norm
 
-from rlsim.utils import suppress_print
-
 
 class Environment:
     def __init__(self, 
@@ -105,8 +103,6 @@ class Environment:
             calculator = MACECalculator(
                 model_paths=model_path, device=device, default_dtype=kwargs.get("default_type", "float32"), **kwargs
             )
-            # with suppress_print():
-            #     calculator = mace_mp(model="medium", dispersion=False, default_dtype="float32", device=device)
                 
         elif platform == 'kimpy':
             from ase.calculators.kim.kim import KIM
