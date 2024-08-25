@@ -1,6 +1,6 @@
 task = "train_test_context_bandit"
 [logger]
-filename = "train.log"
+filename = "train"
 name = "TRAIN"
 
 [model]
