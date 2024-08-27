@@ -33,7 +33,7 @@ class RLSimulator:
         self.model = model
         self.calculator = self.env.get_calculator(**self.env.calc_params)
         self.relax_accuracy = params["relax_accuracy"]
-        model_params.update({"temperature": params["temperature"]})
+        model_params.update({"temperature": params.get("temperature", None)})
         self.q_params = model_params
         self.device = self.env.calc_params["device"]
 
