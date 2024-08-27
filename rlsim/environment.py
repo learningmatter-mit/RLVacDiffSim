@@ -16,11 +16,14 @@ from ase.mep import NEB
 from ase.optimize import BFGS, FIRE, MDMin
 from numpy.linalg import norm
 
+from rlsim.utils import suppress_print
+
 
 class Environment:
     def __init__(self, 
                  atoms: ase.Atoms | Dict[str, List[List[float]] | Tuple[int, bool]] | os.PathLike | str,
-                 calc_params={"platform": "mace", "device": "cuda", "max_iter": 100, "relax_log": "log", "cutoff": 4.0}):
+                 calc_params={"platform": "mace", "device": "cuda", "max_iter": 100, "relax_log": "log", "cutoff": 4.0},
+                 calculator = None):
         if isinstance(atoms, ase.Atoms):
             self.atoms = atoms
         elif isinstance(atoms, os.PathLike):
@@ -42,7 +45,10 @@ class Environment:
         self.max_iter = calc_params["max_iter"]
         self.cutoff = calc_params["cutoff"]
         self.calc_params = calc_params
-        self.atoms.calc = self.get_calculator(**self.calc_params)
+        if calculator is not None:
+            self.atoms.calc = calculator
+        else:
+            self.atoms.calc = self.get_calculator(**self.calc_params)
         self.device = self.calc_params["device"]
 
     def get_calculator(self,
@@ -59,7 +65,7 @@ class Environment:
                 large="http://tinyurl.com/5f5yavf3",  # MACE_MPtrj_2022.9.model
             )
 
-            def get_mace_mp_model_path(model: str | None = None, model_path: str | None = None) -> str:
+            def get_mace_mp_model_path(model: str | None = None, model_path: str = "") -> str:
                 """Get the default MACE MP model. Replicated from the MACE codebase,
                 Copyright (c) 2022 ACEsuit/mace and licensed under the MIT license.
                 Args:
@@ -98,11 +104,12 @@ class Environment:
                         "Model download failed and no local model found"
                     )
 
-            model_path = get_mace_mp_model_path(model="medium", model_path=kwargs.get("model_path", None))
+            model_path = get_mace_mp_model_path(model=kwargs.get("model", "medium"), model_path=kwargs.get("model_path", ""))
             # Suppress print statements in mace_mp function
-            calculator = MACECalculator(
-                model_paths=model_path, device=device, default_dtype=kwargs.get("default_type", "float32"), **kwargs
-            )
+            with suppress_print(out=True, err=True):
+                calculator = MACECalculator(
+                    model_paths=model_path, device=device, default_dtype=kwargs.get("default_type", "float32"), **kwargs
+                )
                 
         elif platform == 'kimpy':
             from ase.calculators.kim.kim import KIM
