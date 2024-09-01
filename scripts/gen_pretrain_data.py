@@ -36,7 +36,6 @@ def gen_pretrain_data(settings):
     horizon = simulation_config.pop("horizon")
     poscar_dir = simulation_config.pop("poscar_dir")
     n_poscars = simulation_config.pop("n_poscars")
-    temperature = simulation_config["temperature"]
     pool = []
     for directory, n_files in zip(poscar_dir, n_poscars):
         pool += [f"{directory}/POSCAR_" + str(i) for i in range(0, n_files)]
@@ -51,9 +50,9 @@ def gen_pretrain_data(settings):
         simulator = RLSimulator(environment=env,
                                 params=simulation_config)
         for tstep in range(horizon):
-            info = simulator.step()
+            info = simulator.step(random=True)
             replay_list.append(
-                Memory(1.0, 0.0, T=temperature) # 1.0 and 0.0 is random
+                Memory(1.0, 0.0) # 1.0 and 0.0 is random
             )
             replay_list[-1].add(info)
 
