@@ -27,6 +27,7 @@ class Memory:
         self.freq = []
 
         self.E_min = []
+        self.barrier = []
         self.E_s = []
         self.E_next = []
         self.fail = []
@@ -45,19 +46,19 @@ class Memory:
         self.fail.append(info["fail"])
         self.next_states.append(info["next"])
         self.freq.append(info["log_freq"])
-
+        self.E_s.append(info["E_s"])
         self.E_min.append(info["E_min"])
         self.E_next.append(info["E_next"])
 
         if not info["fail"]:
-            self.E_s.append(info["E_s"])
+            self.barrier.append(info["E_s"]-info["E_min"])
             self.rewards.append(
                 self.k_s
-                * (self.E_min[-1] - self.E_s[-1] + self.kb * self.T * self.freq[-1])
+                * (-self.barrier[-1] + self.kb * self.T * self.freq[-1])
                 + self.k_min * (self.E_min[-1] - self.E_next[-1])
             )
         else:
-            self.E_s.append(0)
+            self.barrier.append(0.0)
             self.rewards.append(self.fail_panelty)
 
     def HTST(self, T):

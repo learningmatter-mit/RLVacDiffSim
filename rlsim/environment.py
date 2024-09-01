@@ -12,7 +12,7 @@ from typing import Dict, List, Tuple
 
 import ase
 import numpy as np
-from ase.mep import NEB
+from ase.mep.neb import NEB
 from ase.optimize import BFGS, FIRE, MDMin
 from numpy.linalg import norm
 
@@ -22,7 +22,12 @@ from rlsim.utils import suppress_print
 class Environment:
     def __init__(self, 
                  atoms: ase.Atoms | Dict[str, List[List[float]] | Tuple[int, bool]] | os.PathLike | str,
-                 calc_params={"platform": "mace", "device": "cuda", "max_iter": 100, "relax_log": "log", "cutoff": 4.0},
+                 calc_params={"platform": "mace", 
+                              "device": "cuda", 
+                              "max_iter": 100, 
+                              "relax_log": "log", 
+                              "relax_accuracy": 0.01,
+                              "cutoff": 4.0},
                  calculator = None):
         if isinstance(atoms, ase.Atoms):
             self.atoms = atoms
@@ -41,9 +46,6 @@ class Environment:
         self.n_atom = len(self.atoms)
         self.pos = self.positions("cartesion").tolist()
         self.output = StringIO()
-        self.relax_log = calc_params["relax_log"]
-        self.max_iter = calc_params["max_iter"]
-        self.cutoff = calc_params["cutoff"]
         self.calc_params = calc_params
         if calculator is not None:
             self.atoms.calc = calculator
@@ -196,18 +198,18 @@ class Environment:
         self.atoms.set_positions(pos)
         return log_niu_prod
 
-    def relax(self, accuracy=0.05):
+    def relax(self):
         self.atoms.set_constraint(
             ase.constraints.FixAtoms(mask=[False] * self.n_atom)
         )
-        dyn = MDMin(self.atoms, logfile=self.relax_log)
+        dyn = MDMin(self.atoms, logfile=self.calc_params["relax_log"])
         with redirect_stdout(self.output):
-            converge = dyn.run(fmax=accuracy, steps=self.max_iter)
+            converge = dyn.run(fmax=self.calc_params["relax_accuracy"], steps=self.calc_params["max_iter"])
         self.pos = self.atoms.get_positions().tolist()
 
         return converge
 
-    def step(self, action: list = [], accuracy=0.05):
+    def step(self, action: list = []):
         self.action = action
         self.pos_last = self.positions(f="cartesion")
         self.initial = self.atoms.copy()
@@ -221,7 +223,7 @@ class Environment:
         self.pos = (self.positions(f="cartesion") + self.act_displace).tolist()
         self.set_atoms(self.pos, convention="cartesion")
 
-        converge = self.relax(accuracy=accuracy)
+        converge = self.relax()
         fail = int(norm(self.pos_last - self.positions(f="cartesion")) < 0.2) + (
             not converge
         )
@@ -232,9 +234,9 @@ class Environment:
     def revert(self):
         self.set_atoms(self.pos_last, convention="cartesion")
 
-    def mask(self):
-        dist = self.atoms.get_distances(range(self.n_atom), self.act_atom)
-        mask = [d > self.cutoff for d in dist]
+    def mask(self, act_atom):
+        dist = self.atoms.get_distances(range(self.n_atom), act_atom)
+        mask = [d > self.calc_params["cutoff"] for d in dist]
 
         return mask
 
@@ -243,34 +245,33 @@ class Environment:
         self.atoms.set_scaled_positions(pos_frac)
 
     def saddle(
-        self, moved_atom=-1, accuracy=0.1, n_points=10, r_cut=4
+        self, initial_atoms, next_atoms, moved_atom=-1, n_points=10
     ):
-        self.atoms.set_constraint(
-            ase.constraints.FixAtoms(mask=[False] * self.n_atom)
+        n_atoms = len(initial_atoms)
+        next_atoms.set_constraint(
+            ase.constraints.FixAtoms(mask=[False] * n_atoms)
         )
-        self.initial.set_constraint(
-            ase.constraints.FixAtoms(mask=[False] * self.n_atom)
+        initial_atoms.set_constraint(
+            ase.constraints.FixAtoms(mask=[False] * n_atoms)
         )
-        images = [self.initial]
-        images += [self.initial.copy() for i in range(n_points - 2)]
-        images += [self.atoms]
-
+        images = [initial_atoms]
+        images += [initial_atoms.copy() for i in range(n_points - 2)]
+        images += [next_atoms]
         neb = NEB(images)
-        neb.interpolate()
+        neb.interpolate(mic=True)
 
         for image in range(n_points):
             images[image].calc = self.get_calculator(**self.calc_params)
-            images[image].set_constraint(ase.constraints.FixAtoms(mask=self.mask()))
+            images[image].set_constraint(ase.constraints.FixAtoms(mask=self.mask(moved_atom)))
         with redirect_stdout(self.output):
-            optimizer = MDMin(neb, logfile=self.relax_log)
+            optimizer = MDMin(neb, logfile=self.calc_params["relax_log"])
 
-        res = optimizer.run(fmax=accuracy, steps=self.max_iter)
-        res = True
-        if res:
+        converged = optimizer.run(fmax=self.calc_params["relax_accuracy"], steps=self.calc_params["max_iter"])
+        if converged:
             Elist = [image.get_potential_energy() for image in images]
-            E = np.max(Elist)
+            Ea = np.max(Elist)
 
-            def log_niu_prod(input_atoms, NN, saddle=False):
+            def log_niu_prod(input_atoms, NN, saddle_point=False):
                 delta = 0.05
 
                 mass = input_atoms.get_masses()[NN]
@@ -289,7 +290,7 @@ class Environment:
                         )
 
                 freq_mat = (Hessian + Hessian.T) / 2 / mass_mat
-                if saddle:
+                if saddle_point:
                     prod = np.prod(np.linalg.eigvals(freq_mat)[1:])
                 else:
                     prod = np.linalg.det(freq_mat)
@@ -298,33 +299,22 @@ class Environment:
                 return output
 
             max_ind = np.argmax(Elist)
-            r_cut = 3
-            NN = self.initial.get_distances(
-                moved_atom, range(len(self.initial)), mic=True
+            NN = initial_atoms.get_distances(
+                moved_atom, range(len(initial_atoms)), mic=True
             )
-            NN = np.argwhere(NN < r_cut).T[0]
-            self.initial.calc = self.get_calculator(**self.calc_params)
-            self.initial.set_constraint(
-                ase.constraints.FixAtoms(mask=[False] * self.n_atom)
+            NN = np.argwhere(NN < self.calc_params["cutoff"]).T[0]
+            initial_atoms.set_constraint(
+                ase.constraints.FixAtoms(mask=[False] * n_atoms)
             )
-            images[max_ind].calc = self.get_calculator(**self.calc_params)
             images[max_ind].set_constraint(
-                ase.constraints.FixAtoms(mask=[False] * self.n_atom)
+                ase.constraints.FixAtoms(mask=[False] * n_atoms)
             )
-            log_niu_min = log_niu_prod(self.initial, NN)
-            log_niu_s = log_niu_prod(images[max_ind], NN, saddle=True)
+            log_niu_min = log_niu_prod(initial_atoms, NN)
+            log_niu_s = log_niu_prod(images[max_ind], NN, saddle_point=True)
 
             log_attempt_freq = log_niu_min - log_niu_s + np.log(1.55716 * 10)
 
         else:
-            E = 0
+            Ea = 0
             log_attempt_freq = 0
-        self.atoms.set_constraint(
-            ase.constraints.FixAtoms(mask=[False] * self.n_atom)
-        )
-
-        pos_frac = self.atoms.get_scaled_positions() % 1
-        self.atoms.set_scaled_positions(pos_frac)
-
-        return E, log_attempt_freq, int(not res)
-    
+        return Ea, log_attempt_freq, int(not converged)

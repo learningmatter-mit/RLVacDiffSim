@@ -31,7 +31,7 @@ def deploy_RL(settings, atoms_traj=None):
     n_episodes = deploy_config.pop("n_episodes")
     horizon = deploy_config.pop("horizon")
     simulation_mode = deploy_config.pop("mode")
-    simulation_input_params = deploy_config.pop("input_params")
+    simulation_params = deploy_config.pop("simulation_params")
     if atoms_traj is not None:
         pool = atoms_traj
     else:
@@ -50,7 +50,7 @@ def deploy_RL(settings, atoms_traj=None):
         logger.info(f"Episode: {u}")
         file = pool[np.random.randint(len(pool))]
         env = Environment(file, calc_params=calc_params)
-        env.relax(accuracy=deploy_config["relax_accuracy"])
+        env.relax()
         simulator = RLSimulator(environment=env,
                                 model=model,
                                 model_params=model_config["params"],
@@ -60,7 +60,7 @@ def deploy_RL(settings, atoms_traj=None):
                                 logger=logger,
                                 atoms_traj=atoms_traj,
                                 mode=simulation_mode,
-                                **simulation_input_params)
+                                **simulation_params)
         if simulation_mode == "lss":
             El.append(outputs[0])
         elif simulation_mode == "tks":

@@ -19,7 +19,6 @@ def train_DQN(settings):
     with open(settings, "r") as f:
         config = toml.load(f)
         task = config["task"]
-        logger_config = config["logger"]
         model_config = config["model"]
         train_config = config["train"]
 
@@ -32,9 +31,6 @@ def train_DQN(settings):
 
     with open(task + "/loss.txt", "w") as file:
         file.write("epoch\t loss\n")
-
-    log_filename = f"{task}/{logger_config['filename']}.log"
-    logger = setup_logger(logger_config["name"], log_filename)
 
     calc_params = train_config.pop("calc_info")
     calc_params.update({"relax_log": f"{task}/{calc_params['relax_log']}"})
@@ -68,34 +64,29 @@ def train_DQN(settings):
 
     replay_list = []
     for epoch in range(n_episodes):
-
-        file = pool[np.random.randint(len(pool))]
-        logger.info("epoch = " + str(epoch) + ":  " + file)
-        env = Environment(file, calc_params=calc_params)
-        env.relax(accuracy=train_config["relax_accuracy"])
+        atoms = pool[np.random.randint(len(pool))]
+        env = Environment(atoms, calc_params=calc_params)
+        env.relax()
         simulator = RLSimulator(environment=env,
                                 model=model,
                                 model_params=model_config["params"],
                                 params=train_config)
+        replay_list.append(
+            Memory(q_params["alpha"], q_params["beta"], T=q_params["temperature"])
+        )
         for tstep in range(horizon):
-            info = simulator.step()
-            replay_list.append(
-                Memory(q_params["alpha"], q_params["beta"], T=q_params["temperature"])
-            )
+            info = simulator.step(q_params["temperature"])
             replay_list[-1].add(info)
-
             if tstep % 10 == 0 and tstep > 0:
-                logger.info("    t = " + str(tstep))
-        steps = (int(1 + epoch ** (2 / 3)), 5)
-        train_config["update_params"].update({"steps": steps})
+                print.info(f"  t   : {tstep}")
+        train_config["update_params"].update({"episode_size": int(1 + epoch ** (2 / 3))})
         loss = trainer.update(memory_l=replay_list, mode=train_mode, **train_config["update_params"])
-        logger.info(f"Epoch: {epoch} | Loss: {loss}")
         with open(task + "/loss.txt", "a") as file:
             file.write(str(epoch) + "\t" + str(loss) + "\n")
         try:
             replay_list[epoch].save(task + "/traj/traj" + str(epoch))
         except:
-            logger.info("saving failure")
+            print.info("saving failure")
 
         if epoch % 10 == 0:
             model.save(task + "/model/model" + str(epoch))

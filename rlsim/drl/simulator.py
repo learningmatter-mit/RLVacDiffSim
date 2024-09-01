@@ -32,12 +32,12 @@ class RLSimulator:
         self.env = environment
         self.model = model
         self.calculator = self.env.get_calculator(**self.env.calc_params)
-        self.relax_accuracy = params["relax_accuracy"]
         model_params.update({"temperature": params.get("temperature", None)})
         self.q_params = model_params
         self.device = self.env.calc_params["device"]
 
-    def select_action(self, action_space):
+    def select_action(self, action_space, temperature):
+        self.update_q_params(**{"temperature": temperature})
         self.model.to(self.device)
         self.model.eval()
         dataset_list = convert_to_graph_list(self.env.atoms, action_space)
@@ -50,7 +50,7 @@ class RLSimulator:
                 rl_q = self.model(batch, q_params=self.q_params)["rl_q"]
                 total_q_list.append(rl_q.detach())
         Q = torch.concat(total_q_list, dim=-1)
-        action_probs = nn.Softmax(dim=0)(Q/(self.q_params['temperature']*8.617*10**-5))
+        action_probs = nn.Softmax(dim=0)(Q/(temperature*8.617*10**-5))
         action = np.random.choice(
             len(action_probs.detach().cpu().numpy()),
             p=action_probs.detach().cpu().numpy(),
@@ -58,13 +58,13 @@ class RLSimulator:
 
         return action, action_probs, Q
 
-    def step(self, random=False):
+    def step(self, temperature, random=False):
         action_space = get_action_space(self.env)
         if random:
             act_id = np.random.choice(len(action_space))
             act_probs = np.array([])
         else:
-            act_id, act_probs, _ = self.select_action(action_space)
+            act_id, act_probs, _ = self.select_action(action_space, temperature)
         action = action_space[act_id]
         info = {
             "act": act_id,
@@ -74,11 +74,13 @@ class RLSimulator:
             "E_min": self.env.potential(),
         }
 
-        E_next, fail = self.env.step(action, accuracy=0.05)
+        E_next, fail = self.env.step(action)
         self.env.normalize_positions()  # TODO: why do we need is this?
         if not fail and self.q_params["alpha"] != 0.0:
+            initial_atoms = self.env.initial.copy()
+            next_atoms = self.env.atoms.copy()
             E_s, freq, fail = self.env.saddle(
-                action[0], n_points=8, accuracy=0.07
+                initial_atoms=initial_atoms, next_atoms=next_atoms, moved_atom=action[0], n_points=8
             )
             info["E_s"], info["log_freq"] = E_s, freq
         else:
@@ -96,46 +98,47 @@ class RLSimulator:
             logger,
             atoms_traj: str,
             mode: str = 'lss',
-            **input_params):
+            **simulation_params):
         io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar")
 
         if mode == "lss":
-            outputs = self.run_LSS(horizon, atoms_traj, logger, **input_params)
+            outputs = self.run_LSS(horizon, atoms_traj, logger, **simulation_params)
         elif mode == "tks":
-            outputs = self.run_TKS(horizon, atoms_traj, logger, **input_params)
+            outputs = self.run_TKS(horizon, atoms_traj, logger, **simulation_params)
         return outputs
 
-    def run_LSS(self, horizon, atoms_traj, logger, **input_params):
+    def run_LSS(self, horizon, atoms_traj, logger, **simulation_params):
         T_scheduler = ThermalAnnealing(total_horizon=horizon,
-                                       annealing_time=input_params["annealing_time"], 
-                                       T_start=input_params["T_start"], 
-                                       T_end=input_params["T_end"])
+                                       annealing_time=simulation_params["annealing_time"], 
+                                       T_start=simulation_params["T_start"], 
+                                       T_end=simulation_params["T_end"])
         Elist = [self.env.atoms.get_positions()[-1].tolist()]
         for tstep in range(horizon):
             new_T = T_scheduler.get_temperature(tstep=tstep)
             self.update_q_params(**{"temperature": new_T})
             action_space = get_action_space(self.env)
-            act_id, _, _ = self.select_action(action_space)
+            act_id, _, _ = self.select_action(action_space, new_T)
             action = action_space[act_id]
-            _, _ = self.env.step(action, accuracy=self.relax_accuracy)
+            _, _ = self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
             energy = self.env.potential()
             Elist.append(energy)
             if tstep % 10 == 0:
                 logger.info(
-                    f"Step: {tstep}, T: {self.q_params['temperature']:.2f}, E: {energy:.3f}"
+                    f"Step: {tstep}, T: {new_T:.2f}, E: {energy:.3f}"
                 )
         return (Elist)
 
-    def run_TKS(self, horizon, atoms_traj, logger, **input_params):
+    def run_TKS(self, horizon, atoms_traj, logger, **simulation_params):
         tlist = [0]
         clist = [self.env.atoms.get_positions()[-1].tolist()]
-        kT = self.q_params["temperature"] * 8.617 * 10**-5
+        temperature = simulation_params["temperature"]
+        kT = temperature * 8.617 * 10**-5
         for tstep in range(horizon):
             action_space = get_action_space(self.env)
-            act_id, _, Q = self.select_action(action_space)
+            act_id, _, Q = self.select_action(action_space, temperature)
             action = action_space[act_id]
-            _, _ = self.env.step(action, accuracy=self.relax_accuracy)
+            _, _ = self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
             Gamma = float(torch.sum(torch.exp(Q/kT)));
             dt = 1 / Gamma * 10**-6
@@ -143,7 +146,7 @@ class RLSimulator:
             clist.append(self.env.atoms.get_positions()[-1].tolist())
             if tstep % 100 == 0:
                 logger.info(
-                    f"Step: {tstep}, T: {self.q_params['temperature']:.2f}, E: {self.env.potential():.3f}"
+                    f"Step: {tstep}, T: {temperature:.2f}, E: {self.env.potential():.3f}"
                 )
         return (tlist, clist)
 
