@@ -1,7 +1,7 @@
 task = "train_test_dqn"
-[logger]
-filename = "train"
-name = "TRAIN"
+# [logger]
+# filename = "train"
+# name = "TRAIN"
 
 [model]
 "@name" = "dqn_v2"
@@ -16,24 +16,24 @@ dqn = true
 model_path = "/home/hojechun/ssd_mnt/1-RLVacDiff/1-Models/best_model_mace_Vrandom_sum_0716.pth.tar"
 
 [train]
-horizon = 3
+horizon = 5
 lr = 1e-5
 mode = "dqn"
 n_episodes = 5
 n_poscars = [100]
 poscar_dir = ["/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"]
-relax_accuracy = 0.01
 temperature = 900
-train_all = false
+train_all = true
 [train.update_params]
 batch_size = 8
 device = "cuda"
 gamma = 0.9
-size = 1
+num_epoch = 5
 
 [train.calc_info]
 cutoff = 4.0
 device = "cuda"
-max_iter = 10
+max_iter = 100
 platform = "mace"
+relax_accuracy = 0.01
 relax_log = "relax.log"

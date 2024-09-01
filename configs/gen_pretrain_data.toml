@@ -9,7 +9,6 @@ n_episodes = 5
 n_poscars = [100]
 poscar_dir = ["/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"]
 relax_accuracy = 0.01
-temperature = 900
 
 [simulation.calc_info]
 cutoff = 4.0

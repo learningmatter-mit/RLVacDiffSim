@@ -17,9 +17,8 @@ mode = "lss"
 n_episodes = 2
 n_poscars = 100
 poscar_dir = "/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"
-relax_accuracy = 0.01
 
-[deploy.input_params]
+[deploy.simulation_params]
 T_end = 700
 T_start = 1200
 annealing_time = 3
@@ -29,4 +28,5 @@ cutoff = 4.0
 device = "cuda"
 max_iter = 10
 platform = "mace"
+relax_accuracy = 0.01
 relax_log = "relax.log"
