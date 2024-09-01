@@ -2,7 +2,7 @@ import logging
 
 
 def setup_logger(name, log_file, level=logging.INFO):
-    formatter = logging.Formatter("%(asctime)s - %(name)s | %(message)s", "%Y:%H:%M:%S")
+    formatter = logging.Formatter("%(asctime)s - %(name)s | %(message)s", "%Y-%m-%d %H:%M:%S")
     file_handler = logging.FileHandler(log_file, mode="w")
     file_handler.setFormatter(formatter)
     logger = logging.getLogger(name)
