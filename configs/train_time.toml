@@ -1,0 +1,30 @@
+task = "train_test_dqn"
+[logger]
+filename = "train"
+name = "TRAIN-T"
+
+[model]
+D_scaler = 0.00390625 # 1/256
+T_scaler_m = 7.918951990135469 
+dropout_rate = 0.1 
+n_feat = 64 
+tau = 30 
+
+[train]
+alpha = 1.0
+batch_size = 32
+dataset_list = ["300.json", "500.json", "700.json", "900.json"]
+device = "cuda"
+dqn_path = "Vrandom_DQN_new_sum"
+epoch = 101
+label_filename = "labels.pkl"
+logfilename = "loss.txt"
+lr = 1e-5
+num_dataset = 6000
+offline_update = 10
+save_model_name = "time_estimator.pth.tar"
+temperature = [300, 500, 700, 900]
+
+[train.dataset_path]
+next_state = "t_next_dataset.pth.tar"
+state = "t_dataset.pth.tar"

@@ -2,6 +2,7 @@ import click
 
 from rlsim.drl.deploy import deploy_RL
 from rlsim.drl.train import train_DQN
+from rlsim.time.train import train_Time
 
 
 @click.command()
@@ -38,6 +39,9 @@ def main(simulation, config_name):
         train_DQN(config_name)
     elif simulation == "rl-deploy":
         deploy_RL(config_name)
+    elif simulation == "time-train":
+
+
     else:
         raise click.UsageError(f"Unsupported simulation type: {simulation}. Please use 'rl-train' or 'rl-deploy'.")
 

@@ -13,6 +13,7 @@ Reinforcement Learning driven simulation of vacancy diffusion
 ```bash
 conda update conda
 pip install --upgrade pip
+cd <rlsim_direcotry>
 conda env create -f environment.yml
 conda activate rlsim-env
 ```
@@ -24,8 +25,8 @@ conda activate rlsim-env
 ```bash
 
 conda install pytorch=2.2.0 torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-conda install pyg pytorch-cluster pytorch-scatter pytorch-sparse -c pyg # If this downgrades torch to gpu version try below
-#pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.2.0+cu121.html
+pip install torch_geometric
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.2.0+cu121.html
 
 ```
 

@@ -86,15 +86,6 @@ def preprcess_time(data, config, temperature):
     return filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final
 
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Apr  7 15:20:17 2024
-
-@author: ubuntu
-"""
-
-
 # TODO: Should be generalized
 def get_total_n_atoms(n_atoms):
     if n_atoms < 200:
@@ -106,7 +97,6 @@ def get_total_n_atoms(n_atoms):
     elif n_atoms >=600 and n_atoms < 900:
         total_n_atoms = 856
     return total_n_atoms
-
 
 
 def make_t_dataset(atoms_list, atoms_list_next, target_time_list, target_next_time_list,
@@ -160,10 +150,24 @@ def make_t_dataset(atoms_list, atoms_list_next, target_time_list, target_next_ti
 
     return dataset, dataset_next
 
+
+def combined_loss(time_predictions, time_labels,  goal_labels, t_scaler, d_scaler, alpha=1.0):
+    is_not_goal_state = (goal_labels == 0)
+
+    total_scaler = t_scaler * d_scaler
+    scaled_preds = time_predictions / total_scaler
+    scaled_labels = time_labels / total_scaler
+    time_loss = torch.mean((scaled_preds[is_not_goal_state]- scaled_labels[is_not_goal_state])**2)
+    if len(scaled_preds[~is_not_goal_state]) !=0:
+        goal_loss = torch.mean((scaled_preds[~is_not_goal_state]- scaled_labels[~is_not_goal_state])**2)
+        total_loss = (alpha*goal_loss + time_loss) 
+    else:
+        total_loss = time_loss
+    return total_loss
+
+
 def get_time_imbalance_sampler(dataset):
     weights = []
-
-
     negative_idx = [
         i
         for i, data in enumerate(dataset)
