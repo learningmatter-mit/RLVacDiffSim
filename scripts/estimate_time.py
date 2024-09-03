@@ -53,7 +53,7 @@ def estimate_time(model, temperature, concentration, atoms_l, n_traj, time_file,
         json.dump(sro_out, file)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Estimate Time')
     parser.add_argument('-m', '--model', required=True, help='Time estimator model')
     parser.add_argument('-v', '--vacancy_info',nargs=2, required=True, help='vacancy concentration', default=[1, 256])
