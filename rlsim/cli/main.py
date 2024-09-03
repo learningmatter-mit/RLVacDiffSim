@@ -40,8 +40,7 @@ def main(simulation, config_name):
     elif simulation == "rl-deploy":
         deploy_RL(config_name)
     elif simulation == "time-train":
-
-
+        train_Time(config_name)
     else:
         raise click.UsageError(f"Unsupported simulation type: {simulation}. Please use 'rl-train' or 'rl-deploy'.")
 
