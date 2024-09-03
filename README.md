@@ -3,10 +3,8 @@ Reinforcement Learning driven simulation of vacancy diffusion
 
 ## TODO
 
-- [ ] Time
-- [ ] 
-- [ ] 
-- [ ] 
+- [ ] Debug script
+- [ ] Documentation
 
 ## Create conda envrionment
 
