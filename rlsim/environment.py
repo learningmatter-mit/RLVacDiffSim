@@ -28,7 +28,7 @@ class Environment:
                               "relax_log": "log", 
                               "relax_accuracy": 0.01,
                               "cutoff": 4.0},
-                 calculator = None):
+                 calculator=None):
         if isinstance(atoms, ase.Atoms):
             self.atoms = atoms
         elif isinstance(atoms, os.PathLike):
@@ -45,7 +45,6 @@ class Environment:
             raise "Atoms should be properly given"
         self.n_atom = len(self.atoms)
         self.pos = self.positions("cartesion").tolist()
-        self.output = StringIO()
         self.calc_params = calc_params
         if calculator is not None:
             self.atoms.calc = calculator
@@ -108,10 +107,10 @@ class Environment:
 
             model_path = get_mace_mp_model_path(model=kwargs.get("model", "medium"), model_path=kwargs.get("model_path", ""))
             # Suppress print statements in mace_mp function
-            with suppress_print(out=True, err=True):
+            with suppress_print(out=True, err=False):
                 calculator = MACECalculator(
                     model_paths=model_path, device=device, default_dtype=kwargs.get("default_type", "float32"), **kwargs
-                )
+                    )
                 
         elif platform == 'kimpy':
             from ase.calculators.kim.kim import KIM
@@ -203,8 +202,7 @@ class Environment:
             ase.constraints.FixAtoms(mask=[False] * self.n_atom)
         )
         dyn = MDMin(self.atoms, logfile=self.calc_params["relax_log"])
-        with redirect_stdout(self.output):
-            converge = dyn.run(fmax=self.calc_params["relax_accuracy"], steps=self.calc_params["max_iter"])
+        converge = dyn.run(fmax=self.calc_params["relax_accuracy"], steps=self.calc_params["max_iter"])
         self.pos = self.atoms.get_positions().tolist()
 
         return converge
@@ -263,8 +261,7 @@ class Environment:
         for image in range(n_points):
             images[image].calc = self.get_calculator(**self.calc_params)
             images[image].set_constraint(ase.constraints.FixAtoms(mask=self.mask(moved_atom)))
-        with redirect_stdout(self.output):
-            optimizer = MDMin(neb, logfile=self.calc_params["relax_log"])
+        optimizer = MDMin(neb, logfile=self.calc_params["relax_log"])
 
         converged = optimizer.run(fmax=self.calc_params["relax_accuracy"], steps=self.calc_params["max_iter"])
         if converged:
