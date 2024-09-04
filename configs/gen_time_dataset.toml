@@ -17,7 +17,6 @@ mode = "lss"
 n_episodes = 2
 n_poscars = 100
 poscar_dir = "/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"
-relax_accuracy = 0.01
 temperature = 900
 
 [deploy.calc_info]
@@ -25,4 +24,5 @@ cutoff = 4.0
 device = "cuda"
 max_iter = 10
 platform = "mace"
+relax_accuracy = 0.01
 relax_log = "relax.log"

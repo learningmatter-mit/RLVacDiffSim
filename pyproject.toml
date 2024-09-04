@@ -34,6 +34,10 @@ requires-python = ">=3.9,<3.12"
 
 [project.scripts]
 rlsim = "rlsim.cli.main:main"
+rlsim-estimate_time = "rlsim.cli.scripts.estimate_time:main"
+rlsim-gen_pretrain_data = "rlsim.cli.scripts.gen_pretrain_data:main"
+rlsim-gen_time_dataset = "rlsim.cli.scripts.gen_time_dataset:main"
+rlsim-parse_memory = "rlsim.cli.scripts.parse_memory:main"
 
 [project.optional-dependencies]
 dev = ["black", "isort", "flake8"]

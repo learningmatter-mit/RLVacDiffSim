@@ -1,7 +1,7 @@
 task = "train_test_context_bandit"
-# [logger]
-# filename = "train"
-# name = "TRAIN"
+[logger]
+filename = "train"
+name = "TRAIN"
 
 [model]
 "@name" = "dqn_v2"

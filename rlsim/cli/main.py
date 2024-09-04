@@ -1,8 +1,12 @@
+import os
+
 import click
+import toml
 
 from rlsim.drl.deploy import deploy_RL
 from rlsim.drl.train import train_DQN
 from rlsim.time.train import train_Time
+from rlsim.utils.logger import setup_logger
 
 
 @click.command()
@@ -10,8 +14,6 @@ from rlsim.time.train import train_Time
 @click.option("-c", "--config_name", help="Name config file in toml", required=True)
 def main(simulation, config_name):
     """
-    Main command-line interface for RL simulation and training.
-
     This function serves as the entry point for running various reinforcement learning (RL) 
     simulations and training tasks via the command line. The specific task to be run is 
     determined by the `simulation` argument.
@@ -35,13 +37,21 @@ def main(simulation, config_name):
     Deploy and run an RL simulation using the configuration in 'config.toml':
         $ rlsim rl-deploy -c config.toml
     """
+    with open(config_name, "r") as f:
+        config = toml.load(f)
+        task = config.pop("task")
+        logger_config = config.pop("logger")
+    if task not in os.listdir():
+        os.makedirs(task, exist_ok=True)
+    log_filename = f"{task}/{logger_config['filename']}.log"
+    logger = setup_logger(logger_config["name"], log_filename)
     if simulation == "rl-train":
-        train_DQN(config_name)
+        train_DQN(task, logger, config)
     elif simulation == "rl-deploy":
-        deploy_RL(config_name)
+        deploy_RL(task, logger, config)
     elif simulation == "time-train":
-        train_Time(config_name)
+        train_Time(task, logger, config)
     else:
-        raise click.UsageError(f"Unsupported simulation type: {simulation}. Please use 'rl-train' or 'rl-deploy'.")
+        raise click.UsageError(f"Unsupported simulation type: {simulation}. Please use 'rl-train', 'rl-deploy' or 'train-time'.")
 
 

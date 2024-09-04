@@ -1,4 +1,3 @@
-import argparse
 import os
 import warnings
 
@@ -15,15 +14,12 @@ from rlsim.utils.logger import setup_logger
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-def train_DQN(settings):
-    with open(settings, "r") as f:
-        config = toml.load(f)
-        task = config["task"]
-        model_config = config["model"]
-        train_config = config["train"]
+def train_DQN(task, logger, config):
+    logger.info(f"Training DQN model in: {os.path.realpath(task)}")
+    toml.dump(config, open(f"{task}/config_copied.toml", "w"))
+    model_config = config["model"]
+    train_config = config["train"]
 
-    if task not in os.listdir():
-        os.makedirs(task, exist_ok=True)
     if "traj" not in os.listdir(task):
         os.mkdir(task + "/traj")
     if "model" not in os.listdir(task):
@@ -64,6 +60,7 @@ def train_DQN(settings):
 
     replay_list = []
     for epoch in range(n_episodes):
+        logger.info(f"Episode : {epoch}")
         atoms = pool[np.random.randint(len(pool))]
         env = Environment(atoms, calc_params=calc_params)
         env.relax()
@@ -77,25 +74,18 @@ def train_DQN(settings):
         for tstep in range(horizon):
             info = simulator.step(q_params["temperature"])
             replay_list[-1].add(info)
-            if tstep % 10 == 0 and tstep > 0:
-                print.info(f"  t   : {tstep}")
+            logger.info(f"  tstep : {tstep}")
         train_config["update_params"].update({"episode_size": int(1 + epoch ** (2 / 3))})
         loss = trainer.update(memory_l=replay_list, mode=train_mode, **train_config["update_params"])
         with open(task + "/loss.txt", "a") as file:
             file.write(str(epoch) + "\t" + str(loss) + "\n")
+            logger.info(f"   Loss : {loss:.3f}")
         try:
             replay_list[epoch].save(task + "/traj/traj" + str(epoch))
         except:
-            print.info("saving failure")
+            logger.info("saving failure")
 
         if epoch % 10 == 0:
             model.save(task + "/model/model" + str(epoch))
         model.save(task + "/model/model_trained")
 
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Train DRL model')
-    parser.add_argument('--config', required=True, help='config file path')
-
-    args = parser.parse_args()
-    train_DQN(args.config)

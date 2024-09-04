@@ -2,9 +2,9 @@ import argparse
 import os
 import warnings
 
+import click
 import numpy as np
 import toml
-from rgnn.common.registry import registry
 
 from rlsim.drl.simulator import RLSimulator
 from rlsim.drl.trainer import Trainer
@@ -46,26 +46,28 @@ def gen_pretrain_data(settings):
         file = pool[np.random.randint(len(pool))]
         logger.info("epoch = " + str(epoch) + ":  " + file)
         env = Environment(file, calc_params=calc_params)
-        env.relax(accuracy=simulation_config["relax_accuracy"])
+        env.relax()
         simulator = RLSimulator(environment=env,
+                                model_params={"alpha": 1.0},
                                 params=simulation_config)
+        replay_list.append(
+            Memory(1.0, 0.0) # 1.0 and 0.0 is random
+        )
         for tstep in range(horizon):
             info = simulator.step(random=True)
-            replay_list.append(
-                Memory(1.0, 0.0) # 1.0 and 0.0 is random
-            )
             replay_list[-1].add(info)
-
-            if tstep % 10 == 0 and tstep > 0:
-                logger.info("    t = " + str(tstep))
+            logger.info("    t = " + str(tstep))
         try:
             replay_list[epoch].save(task + "/traj/traj" + str(epoch))
         except:
             logger.info("saving failure")
             pass
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Train DRL model')
-    parser.add_argument('-c', '--config', required=True, help='config file path')
-    args = parser.parse_args()
-    gen_pretrain_data(args.config)
+
+@click.command()
+@click.option("-c", "--config", required=True, help="config file path")
+def main(config):
+    """
+    Generate pretraining data for the time estimator model
+    """
+    gen_pretrain_data(config)

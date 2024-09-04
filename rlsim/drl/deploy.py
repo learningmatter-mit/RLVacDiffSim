@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 
@@ -8,21 +7,13 @@ from rgnn.common.registry import registry
 
 from rlsim.drl.simulator import RLSimulator
 from rlsim.environment import Environment
-from rlsim.utils.logger import setup_logger
 
 
-def deploy_RL(settings, atoms_traj=None):
-    with open(settings, "r") as f:
-        config = toml.load(f)
-        task = config["task"]
-        logger_config = config["logger"]
-        deploy_config = config["deploy"]
-        model_config = config["model"]
-
-    if task not in os.listdir():
-        os.makedirs(task, exist_ok=True)
-    log_filename = f"{task}/{logger_config['filename']}.log"
-    logger = setup_logger(logger_config["name"], log_filename)
+def deploy_RL(task, logger, config, atoms_traj=None):
+    logger.info(f"Deploy DRL in: {os.path.realpath(task)}")
+    toml.dump(config, open(f"{task}/config_copied.toml", "w"))
+    deploy_config = config["deploy"]
+    model_config = config["model"]
 
     model = registry.get_model_class(model_config["@name"]).load(f"{model_config['model_path']}")
 
@@ -66,7 +57,7 @@ def deploy_RL(settings, atoms_traj=None):
         elif simulation_mode == "tks":
             Tl.append(outputs[0])
             Cl.append(outputs[1])
-    if simulation_mode == "lss":    
+    if simulation_mode == "lss":
         with open(output_file, "w") as file:
             json.dump(El, file)
     elif simulation_mode == "tks":
@@ -74,9 +65,3 @@ def deploy_RL(settings, atoms_traj=None):
             json.dump([Tl, Cl], file)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Train DRL model')
-    parser.add_argument('--config', required=True, help='config file path')
-
-    args = parser.parse_args()
-    deploy_RL(args.config)

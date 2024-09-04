@@ -1,4 +1,4 @@
-task = "train_test_dqn"
+task = "."
 [logger]
 filename = "pretrain"
 name = "Gen Pretrain"
@@ -8,11 +8,11 @@ horizon = 3
 n_episodes = 5
 n_poscars = [100]
 poscar_dir = ["/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"]
-relax_accuracy = 0.01
 
 [simulation.calc_info]
 cutoff = 4.0
 device = "cuda"
-max_iter = 10
+max_iter = 100
 platform = "mace"
+relax_accuracy = 0.01
 relax_log = "relax.log"

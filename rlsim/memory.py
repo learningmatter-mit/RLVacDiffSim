@@ -5,6 +5,8 @@ Created on Mon Sep 26 10:10:21 2022
 @author: 17000
 """
 
+import json
+
 import ase
 import numpy as np
 from ase import io
@@ -95,20 +97,17 @@ class Memory:
             self.action_probs,
             self.rewards,
             self.E_min,
+            self.barrier,
             self.E_s,
             self.E_next,
             self.fail,
             self.freq,
         ]
 
-        import json
-
         with open(filename + ".json", "w") as file:
             json.dump(to_list, file)
 
     def load(self, filename):
-        import json
-
         with open(filename + ".json", "r") as file:
             data = json.load(file)
         [
@@ -122,6 +121,7 @@ class Memory:
             self.action_probs,
             self.rewards,
             self.E_min,
+            self.barrier,
             self.E_s,
             self.E_next,
             self.fail,
