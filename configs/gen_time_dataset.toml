@@ -1,4 +1,4 @@
-task = "gen_teime_dataset_test"
+task = "gen_time_dataset_test"
 [logger]
 filename = "deploy"
 name = "Deploy"
@@ -12,11 +12,10 @@ beta = 0.0
 dqn = false
 
 [deploy]
-horizon = 10
-mode = "lss"
+horizon = 5
+mode = "tks"
 n_episodes = 2
-n_poscars = 100
-poscar_dir = "/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"
+[deploy.simulation_params]
 temperature = 900
 
 [deploy.calc_info]
@@ -24,5 +23,5 @@ cutoff = 4.0
 device = "cuda"
 max_iter = 10
 platform = "mace"
-relax_accuracy = 0.01
+relax_accuracy = 0.07
 relax_log = "relax.log"

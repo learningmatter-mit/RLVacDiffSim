@@ -143,7 +143,7 @@ class RLSimulator:
             _, _ = self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
             Gamma = float(torch.sum(torch.exp(Q/kT)));
-            dt = 1 / Gamma * 10**-6
+            dt = 1 / Gamma * 10**-6 # 1/(microsecond)
             tlist.append(tlist[-1] + dt)
             clist.append(self.env.atoms.get_positions()[-1].tolist())
             if tstep % 100 == 0:

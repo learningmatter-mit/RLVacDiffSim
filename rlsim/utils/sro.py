@@ -1,15 +1,13 @@
 import numpy as np
-from ase import io
 
 
-def get_sro(file_path):
-    atoms_list = io.read(file_path, ":")
+def get_sro(atoms_list):
     nframe = len(atoms_list)
 
     species = list(set(atoms_list[0].get_atomic_numbers().tolist()))
     n_species = len(species)
     SRO = np.zeros((nframe, n_species, n_species))
-    info = {"species": species, "n_atoms": len(atoms_list[0])}
+    # info = {"species": species, "n_atoms": len(atoms_list[0])}
 
     for i in range(nframe):
         atoms = atoms_list[i]
@@ -43,4 +41,4 @@ def get_sro(file_path):
                 if n1 != n2:
                     SRO[i, n2, n1] = SRO[i, n1, n2]
 
-    return SRO, info
+    return SRO

@@ -27,7 +27,6 @@ def load_data(dataset='training', folder_list=["../data/Vrandom_mace"], traj_n=1
             if criterion:
                 traj_list = Memory(1, 0)
                 traj_list.load(filename.split(".")[0])
-                print(traj_list.E_min, traj_list.rewards)
                 traj.rewards += traj_list.rewards[:-1]
                 traj.states += traj_list.states[:-1]
                 traj.next_states += traj_list.next_states[:-1]
@@ -62,9 +61,9 @@ def set_atoms(atoms, pos: list, convention='frac', slab=False):
     if slab:
         cell[2, 2] *= 1 + 10/norm(cell[2,2])
     if convention == 'frac':
-        atoms = Atoms(element, cell=cell, pbc=pbc, scaled_positions=pos);
+        atoms = Atoms(element, cell=cell, pbc=pbc, scaled_positions=pos)
     else:
-        atoms = Atoms(element, cell=cell, pbc=pbc, positions=pos);
+        atoms = Atoms(element, cell=cell, pbc=pbc, positions=pos)
     return atoms
 
 
@@ -109,7 +108,7 @@ def main(dataset, folder_list, traj_n, save_filename):
         try:
             Ea.append(traj.barrier[i])
         except:
-            Ea.append(traj.rewards[i]*-1) # E_s-E_r
+            Ea.append(traj.rewards[i]*-1)  # E_s-E_r
         freq.append(traj.freq[i])
         diffuse_atom_idx = traj.act_space[i][traj.actions[i]][0]
         diffuse_atom_number = traj.states[i][diffuse_atom_idx].number

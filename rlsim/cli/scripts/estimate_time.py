@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Apr  8 13:18:49 2024
-
-@author: ubuntu
-"""
-
-import argparse
 import json
 
 import click
@@ -28,29 +19,30 @@ def timer_converter(t, tau=30, threshold=0.9999):
         return tau * (t / tau - 1 + torch.log(torch.tensor(threshold, device=t.device, dtype=t.dtype)))
 
 
-def estimate_time(model, temperature, concentration, atoms_l, n_traj, time_file, sro_file, device):
+def estimate_time(model, temperature, concentration, atoms_l, time_file, sro_file, device):
     out = []
     sro_out = []
-
-    for j in range(int(len(atoms_l[:][0])/10)):
-        i = 10*j
+    for i, traj in enumerate(atoms_l):
+        n_frames = len(traj)
         out.append([])
         sro_out.append([])
-        for k in range(n_traj):
-            data = AtomsGraph.from_ase(atoms_l[k][i], model.cutoff, read_properties=False, neighborlist_backend="ase", add_batch=True)
+        for j in range(int(n_frames/10)):
+            k = 10*j
+            data = AtomsGraph.from_ase(traj[k], model.cutoff, read_properties=False, neighborlist_backend="ase", add_batch=True)
             batch = batch_to(data, device)
             pred_time = model(batch, temperature=temperature, defect=concentration)
             time_real = timer_converter(pred_time, model.tau)
-            out[-1] += [float(time_real.detach())]
-            SRO = get_sro(atoms_l[k][i])
+            out[-1].extend([float(time_real.detach())])
+            SRO = get_sro([traj[k]])[0]
             sro_norm = np.linalg.norm(SRO)
-            sro_out[-1] += [sro_norm]
-        if i % 20 == 0:
-            print('complete '+str(i//20+1)+'%')
-
-    with open(time_file) as file:
+            sro_out[-1].extend([sro_norm])
+            if k % 50 == 0:
+                print(f"Complete {i+1}/{len(atoms_l)} | {(k/n_frames*100):.2f} %")
+    out = np.transpose(np.array(out)).tolist()
+    sro_out = np.transpose(np.array(sro_out)).tolist()
+    with open(time_file, "w") as file:
         json.dump(out, file)
-    with open(sro_file) as file:
+    with open(sro_file, "w") as file:
         json.dump(sro_out, file)
 
 
@@ -58,10 +50,10 @@ def estimate_time(model, temperature, concentration, atoms_l, n_traj, time_file,
 @click.option("-m", "--model", required=True, help="Time estimator model")
 @click.option("-v", "--vacancy-info", nargs=2, required=True, type=int, help="Vacancy concentration and ideal number of atoms")
 @click.option("-t", "--temperature", required=True, type=int, help="Temperature of the simulation")
-@click.option("--trajectory", required=True, help="Directory where thermodynamic trajectories are")
-@click.option("-n", "--n_traj", default=10, type=int, help="Number of thermodynamic trajectories")
-@click.option("-d", "--device", default="cuda:0", help="Device to run the model (default: 'cuda:0')")
-def main(model, vacancy_info, temperature, trajectory, n_traj, device):
+@click.option("-f", "--file_list", required=True, type=click.Path(exists=True), multiple=True, help="Directory where thermodynamic trajectories are")
+@click.option("-s", "--save_dir", required=True, default="./", type=click.Path(exists=True), help="Directory to save the results")
+@click.option("-d", "--device", default="cuda", help="Device to run the model (default: 'cuda')")
+def main(model, vacancy_info, temperature, file_list, save_dir, device):
     """
     Main command-line interface for time estimation simulation.
 
@@ -82,13 +74,13 @@ def main(model, vacancy_info, temperature, trajectory, n_traj, device):
     model.to(device)
 
     # Read atoms
-    atoms_l = [io.read(f"{trajectory}/{k}", index=':') for k in range(n_traj)]
+    atoms_l = [io.read(f"{file}", index=':') for file in file_list]
 
     # Prepare file names
-    time_filename = f"Time_{temperature}K_{defect:.3f}.json"
-    sro_filename = f"SRO_{temperature}K_{defect:.3f}.json"
+    time_filename = f"{save_dir}/Time_{temperature}K_{defect:.3f}.json"
+    sro_filename = f"{save_dir}/SRO_{temperature}K_{defect:.3f}.json"
 
     # Output filenames
     print(f"Time: {time_filename},  SRO: {sro_filename}")
     # Run time estimation
-    estimate_time(model, temperature, defect, atoms_l, n_traj, time_filename, sro_filename, device)
+    estimate_time(model, temperature, defect, atoms_l, time_filename, sro_filename, device)
