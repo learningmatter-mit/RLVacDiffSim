@@ -19,32 +19,30 @@ def process_trajectory(args):
     traj, save_dir, index = args
     info = get_info(traj[0])  # Assuming you want the info from the first frame
     sro_results = get_sro(traj)  # Process the full trajectory for SRO results
-
     # Save results as a JSON file
     save_path = os.path.join(save_dir, f"{index}_SRO_results.json")
     with open(save_path, "w") as file:
         json.dump({"SRO": sro_results.tolist(), "info": info}, file)
-    
-    return f"Processed trajectory {index}"
+
 
 
 @click.command()
 @click.option("-i", "--input_dir", required=True, type=click.Path(exists=True), help="Input dir containing diffussion info")
-@click.option("-f", "--file_list", required=True, multiple=True, help="Directory where thermodynamic trajectories are")
+@click.option("-n", "--num_files", required=True, type=int, help="numer of XDATCAR files")
 @click.option("-s", "--save_dir", required=True, default="./", help="Directory to save the results")
-@click.option("-n", "--nproc", type=int, default=4, help="Number of process")
-def main(input_dir, file_list, nproc, save_dir):
-    if save_dir not in os.listdir():
+def main(input_dir, num_files, save_dir):
+    if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
-    print(file_list)
-    traj_l = [io.read(os.path.join(input_dir, file), index=':') for file in file_list]
+    traj_l = []
+    for i in tqdm(range(num_files), desc="Reading trajectories"):
+        filename = os.path.join(input_dir, f"XDATCAR{i}")
+        traj = io.read(filename, index=':')
+        # process_trajectory((traj, save_dir, i))
+        traj_l.append(traj)
 
     # Prepare arguments for multiprocessing
     args = [(traj, save_dir, i) for i, traj in enumerate(traj_l)]
-
     # Use multiprocessing pool
-    with mp.Pool(nproc) as pool:
-        results = list(tqdm(pool.imap(process_trajectory, args), total=len(args), desc="Processing trajectories"))
-    # Optionally print the results of each process
-    for result in results:
-        print(result)
+    with mp.Pool(num_files) as pool:
+        list(tqdm(pool.imap(process_trajectory, args), total=len(traj_l), desc="Processing trajectories"))
+

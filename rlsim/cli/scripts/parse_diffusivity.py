@@ -48,24 +48,26 @@ def process_trajectory(args):
 
 @click.command()
 @click.option("-i", "--input_dir", required=True, type=click.Path(exists=True), help="Input dir containing diffussion info")
-@click.option("-f", "--file_list", required=True, multiple=True, help="Directory where thermodynamic trajectories are")
-@click.option("-n", "--nproc", type=int, default=10, help="Number of process")
+@click.option("-n", "--num_files", required=True, type=int, help="numer of XDATCAR files")
 @click.option("-s", "--save_dir", required=True, default="./", help="Directory to save the results")
-def main(input_dir, file_list, nproc, save_dir):
+def main(input_dir, num_files, save_dir):
     if save_dir not in os.listdir():
         os.makedirs(save_dir, exist_ok=True)
+    traj_l = []
+    for i in tqdm(range(num_files), desc="Reading trajectories"):
+        filename = os.path.join(input_dir, f"XDATCAR{i}")
+        traj = io.read(filename, index=':')
+        traj_l.append(traj)
     input_file = os.path.join(input_dir, "diffuse.json")
     with open(input_file, "r") as file:
         data_d = json.load(file)
-    traj_l = [io.read(os.path.join(input_dir, file), index=':') for file in file_list]
-
     # Prepare arguments for multiprocessing
     args = [(traj, i) for i, traj in enumerate(traj_l)]
 
     # Use multiprocessing to process trajectories in parallel
-    with mp.Pool(nproc) as pool:
+    with mp.Pool(num_files) as pool:
         # Use tqdm to show progress with pool.imap_unordered for real-time updates
-        dx2_results = list(tqdm(pool.imap(process_trajectory, args), total=len(args), desc="Processing trajectories"))
+        dx2_results = list(tqdm(pool.imap(process_trajectory, args), total=len(traj_l), desc="Processing trajectories"))
 
     # Sort results by index to maintain the order
     dx2_results.sort(key=lambda x: x[0])
