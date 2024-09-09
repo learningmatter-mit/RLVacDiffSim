@@ -61,7 +61,8 @@ class Trainer:
             loss_fns=("mse_loss", "mse_loss"),
         )
         prob = [0.99 ** (len(memory_l) - i) for i in range(len(memory_l))]
-        randint = np.random.choice(range(len(memory_l)),size=episode_size, p=prob / np.sum(prob))
+        episode_size = min(episode_size, len(memory_l))
+        randint = np.random.choice(range(len(memory_l)),size=episode_size, p=prob / np.sum(prob), replace=False) # no duplicating episodes
         states, taken_actions, barrier, freq = [], [], [], []
         for u in randint:
             memory = memory_l[u]
