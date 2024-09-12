@@ -266,7 +266,7 @@ class Environment:
         converged = optimizer.run(fmax=self.calc_params["relax_accuracy"], steps=self.calc_params["max_iter"])
         if converged:
             Elist = [image.get_potential_energy() for image in images]
-            Ea = np.max(Elist)
+            Es = np.max(Elist)
 
             def log_niu_prod(input_atoms, NN, saddle_point=False):
                 delta = 0.05
@@ -312,6 +312,6 @@ class Environment:
             log_attempt_freq = log_niu_min - log_niu_s + np.log(1.55716 * 10)
 
         else:
-            Ea = 0
+            Es = 0
             log_attempt_freq = 0
-        return Ea, log_attempt_freq, int(not converged)
+        return Es, log_attempt_freq, int(not converged)

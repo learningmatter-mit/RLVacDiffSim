@@ -105,7 +105,6 @@ class TimeTrainer:
                                                   batch_size=self.train_config["batch_size"],
                                                   sampler=val_sampler)
 
-
     def train(self, best_loss=BEST_LOSS):
         self.logger.info(f"Training Time model in: {os.path.realpath(self.task)}")
 
@@ -153,6 +152,7 @@ class TimeTrainer:
 
             with open(f"{self.task}/{self.train_config['loss_filename']}", 'a') as file:
                 file.write(str(epoch)+'\t'+str(float(record/Nstep))+'\n')
+        self.logger.info("Done...")
 
     def validate(self, epoch):
         """Validate the current state of the model using the validation set"""
