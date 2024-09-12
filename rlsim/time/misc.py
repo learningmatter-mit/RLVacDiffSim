@@ -151,7 +151,8 @@ def make_t_dataset(atoms_list, atoms_list_next, target_time_list, target_next_ti
     return dataset, dataset_next
 
 
-def combined_loss(time_predictions, time_labels,  goal_labels, t_scaler, d_scaler, alpha=1.0):
+def combined_loss(prediction, time_labels,  goal_labels, t_scaler, d_scaler, alpha=1.0):
+    time_predictions = prediction["time"]
     is_not_goal_state = (goal_labels == 0)
 
     total_scaler = t_scaler * d_scaler
@@ -161,6 +162,23 @@ def combined_loss(time_predictions, time_labels,  goal_labels, t_scaler, d_scale
     if len(scaled_preds[~is_not_goal_state]) !=0:
         goal_loss = torch.mean((scaled_preds[~is_not_goal_state]- scaled_labels[~is_not_goal_state])**2)
         total_loss = (alpha*goal_loss + time_loss) 
+    else:
+        total_loss = time_loss
+    return total_loss
+
+
+def combined_loss_binary(prediction, time_labels,  goal_labels, t_scaler, d_scaler, alpha=1.0):
+    time_predictions = prediction["time"]
+    is_not_goal_state = (goal_labels == 0)
+
+    total_scaler = t_scaler * d_scaler
+    scaled_preds = time_predictions / total_scaler
+    scaled_labels = time_labels / total_scaler
+    time_loss = torch.mean((scaled_preds[is_not_goal_state]- scaled_labels[is_not_goal_state])**2)
+    if len(scaled_preds[~is_not_goal_state]) !=0:
+        goal_loss = torch.mean((scaled_preds[~is_not_goal_state]- scaled_labels[~is_not_goal_state])**2)
+        goal_loss_binary = F.binary_cross_entropy_with_logits(prediction["goal"], goal_labels)
+        total_loss = (alpha*(goal_loss+goal_loss_binary) + time_loss) 
     else:
         total_loss = time_loss
     return total_loss
@@ -207,3 +225,4 @@ class CustomSampler(Sampler):
 
     def __len__(self):
         return len(self.indices)
+    

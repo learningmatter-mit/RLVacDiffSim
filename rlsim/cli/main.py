@@ -5,7 +5,7 @@ import toml
 
 from rlsim.drl.deploy import deploy_RL
 from rlsim.drl.train import train_DQN
-from rlsim.time.train import train_Time
+from rlsim.time.train import TimeTrainer
 from rlsim.utils.logger import setup_logger
 
 
@@ -50,7 +50,8 @@ def main(simulation, config_name):
     elif simulation == "rl-deploy":
         deploy_RL(task, logger, config)
     elif simulation == "time-train":
-        train_Time(task, logger, config)
+        t_trainer = TimeTrainer(task, logger, config)
+        t_trainer.train()
     else:
         raise click.UsageError(f"Unsupported simulation type: {simulation}. Please use 'rl-train', 'rl-deploy' or 'train-time'.")
 

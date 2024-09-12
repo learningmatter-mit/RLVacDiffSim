@@ -8,11 +8,8 @@ Created on Sun Apr  7 15:22:58 2024
 
 import json
 import os
-import pickle as pkl
-import sys
 from itertools import islice
 
-import numpy as np
 import toml
 import torch
 from rgnn.common.registry import registry
@@ -24,115 +21,174 @@ from torch.optim.lr_scheduler import (CosineAnnealingLR,
                                       ReduceLROnPlateau, StepLR)
 from torch_geometric.loader import DataLoader
 
-sys.path.append("/home2/hojechun/github_repo/RL_H_diffusion")
+from rlsim.time.misc import (combined_loss, combined_loss_binary,
+                             get_time_imbalance_sampler, make_t_dataset,
+                             preprcess_time)
 
-from rlsim.time.misc import (combined_loss, get_time_imbalance_sampler,
-                             make_t_dataset, preprcess_time)
+BEST_LOSS = 1e10
 
 
-def train_Time(task, logger, config):
-    logger.info(f"Training Time model in: {os.path.realpath(task)}")
-    toml.dump(config, open(f"{task}/config_copied.toml", "w"))
-    train_config = config["train"]
-    dataset_list = config["train"].pop("dataset_list")
-    dqn_model_path = config["train"].pop("dqn_model_path")
-    t_model_config = config["model"]
-    dqn_model = registry.get_model_class("dqn_v2").load(f"{dqn_model_path}")
-    reaction_model = dqn_model.reaction_model
-    t_model = registry.get_model_class("t_net").load_representation(reaction_model, **t_model_config)
-    t_model_offline = registry.get_model_class("t_net").load_representation(reaction_model, **t_model_config)
-    optimizer = Adam(t_model.parameters(), lr=train_config["lr"])
+class TimeTrainer:
+    def __init__(self, task, logger, config):
+        self.task = task
+        self.logger = logger
+        self.config = config
 
-    with open(f"{task}/{train_config['loss_filename']}", 'w') as file:
-        file.write('Epoch\t Loss\n')
+        self.train_config = self.config["train"]
+        dataset_list = self.config["train"].pop("dataset_list")
+        dqn_model_path = self.config["train"].pop("dqn_model_path")
+        t_model_config = self.config["model"]
+        dqn_model = registry.get_model_class("dqn_v2").load(f"{dqn_model_path}")
+        reaction_model = dqn_model.reaction_model
+        self.t_model_name = t_model_config.pop("@name")
+        self.t_model = registry.get_model_class(self.t_model_name).load_representation(reaction_model, **t_model_config)
+        self.t_model_offline = registry.get_model_class(self.t_model_name).load_representation(reaction_model, **t_model_config)
+        self.optimizer = Adam(self.t_model.parameters(), lr=self.train_config["lr"])
+        self.scheduler = ReduceLROnPlateau(optimizer=self.optimizer, mode="min", factor=0.5, threshold=1e-2, threshold_mode="abs", patience=5)
+        # Dataset
+        dataset_path = self.train_config.get('dataset_path', None)
+        if dataset_path is not None:
+            current_state_file = dataset_path['state']
+            next_state_file = dataset_path['next_state']
+        else:
+            current_state_file = f"{self.task}/dataset_current_made.pth"
+            next_state_file = f"{self.task}/dataset_next_made.pth"
+        if os.path.isfile(current_state_file) and os.path.isfile(next_state_file):
+            self.logger.info("Load Dataset")
+            dataset = torch.load(current_state_file)
+            dataset_next = torch.load(next_state_file)
+        else:
+            self.logger.info("Make Dataset")
+            data_read = []
+            temperature_list = []
+            for i, dset_path in enumerate(dataset_list):
+                with open(dset_path) as file:
+                    data = json.load(file)
+                    data_read += data
+                    for _ in range(len(data)):
+                        temperature_list.append(self.train_config["temperature"][i])
+            filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final = preprcess_time(data_read, self.train_config, temperature_list)
+            dataset, dataset_next = make_t_dataset(filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final, cutoff=self.t_model.cutoff)
+            torch.save(dataset, current_state_file)
+            torch.save(dataset_next, next_state_file)
+        goal_state_count = 0
+        for data in dataset:
+            if data["time"] == 0:
+                goal_state_count += 1
+        self.logger.info(f"Goal state count: {goal_state_count} / {len(dataset)}")
+        toml.dump(self.config, open(f"{self.task}/config_copied.toml", "w"))
 
-    current_state_file = train_config['dataset_path']['state']
-    next_state_file = train_config['dataset_path']['next_state']
-    if os.path.isfile(current_state_file) and os.path.isfile(next_state_file):
-        logger.info("Load Dataset")
-        dataset = torch.load(current_state_file)
-        dataset_next = torch.load(next_state_file)
-    else:
-        logger.info("Make Dataset")
-        data_read = []
-        temperature_list = []
-        for i, dset_path in enumerate(dataset_list):
-            with open(dset_path) as file:
-                data = json.load(file)
-                data_read += data
-                for _ in range(len(data)):
-                    temperature_list.append(train_config["temperature"][i])
-        filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final = preprcess_time(data_read, train_config, temperature_list)
-        logger.info("Make Dataset")
-        dataset, dataset_next = make_t_dataset(filtered_atoms_final, 
-                                               filtered_next_atoms_final, 
-                                               filtered_time_final, 
-                                               filtered_next_time_final, 
-                                               filtered_temp_final, 
-                                               cutoff=t_model.cutoff)
-        current_state_file = f"{task}/{train_config['dataset_path']['state']}"
-        next_state_file = f"{task}/{train_config['dataset_path']['next_state']}"
-        torch.save(dataset, current_state_file)
-        torch.save(dataset_next, next_state_file)
+        with open(f"{self.task}/loss.txt", 'w') as file:
+            file.write('Epoch\t Loss\n')
+            
+        with open(f"{self.task}/val_loss.txt", 'w') as file:
+            file.write('Epoch\t Loss\n')
 
-    if train_config.get("sampler", None) == "imbalance":
-        logger.info("Using imbalance sampler")
-        sampler = get_time_imbalance_sampler(dataset)
-        dataloader = DataLoader(dataset,
-                                batch_size=train_config["batch_size"],
-                                sampler=sampler)
-        next_data_loader = DataLoader(dataset_next,
-                                batch_size=train_config["batch_size"],
-                                sampler=sampler)
-    else:
-        logger.info("Using random sampler")
-        dataloader = DataLoader(dataset,
-                                batch_size=train_config["batch_size"],
-                                shuffle=False)
-        next_data_loader = DataLoader(dataset_next,
-                                batch_size=train_config["batch_size"],
-                                shuffle=False)
-    t_model.train()
-    t_model_offline.eval()
-    t_model.to(train_config["device"])
-    t_model_offline.to(train_config["device"])
-    logger.info("Start Training")
-    for epoch in range(train_config["epoch"]):
+        (train_dataset, val_dataset), (train_idx, val_idx) = dataset.train_val_split(train_size=self.train_config["train_size"], return_idx=True)
+        train_dataset_next = dataset_next[train_idx]
+        val_dataset_next = dataset_next[val_idx]
+
+        if self.train_config.get("sampler", None) == "imbalance":
+            self.logger.info("Using imbalance sampler")
+            sampler = get_time_imbalance_sampler(train_dataset)
+            val_sampler = get_time_imbalance_sampler(val_dataset)
+        else:
+            self.logger.info("Using random sampler")
+            sampler = None
+            val_sampler = None
+            self.dataloader = DataLoader(train_dataset,
+                                         batch_size=self.train_config["batch_size"],
+                                         sampler=sampler)
+            self.dataloader_next = DataLoader(train_dataset_next,
+                                              batch_size=self.train_config["batch_size"],
+                                              sampler=sampler)
+            self.val_dataloader = DataLoader(val_dataset,
+                                             batch_size=self.train_config["batch_size"],
+                                             sampler=val_sampler)
+            self.val_dataloader_next = DataLoader(val_dataset_next,
+                                                  batch_size=self.train_config["batch_size"],
+                                                  sampler=val_sampler)
+
+
+    def train(self, best_loss=BEST_LOSS):
+        self.logger.info(f"Training Time model in: {os.path.realpath(self.task)}")
+
+        self.t_model.train()
+        self.t_model_offline.eval()
+        self.t_model.to(self.train_config["device"])
+        self.t_model_offline.to(self.train_config["device"])
+        self.logger.info("Start Training")
+        for epoch in range(self.train_config["epoch"]):
+            record = 0.
+            Nstep = 0
+            for i, batch in enumerate(self.dataloader):
+                self.optimizer.zero_grad()
+                batch = batch_to(batch, self.train_config["device"])
+                next_batch = batch_to(next(islice(self.dataloader_next, i, None)), self.train_config["device"])
+                pred = self.t_model(batch)
+                gamma = torch.exp(-batch["time"]/self.t_model.tau)
+                term1 = self.t_model.tau*(1-gamma)
+                success = (batch["time"] == 0)
+                sucess_next = (batch["next_time"] == 0)
+                goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device)*success
+                next_out = self.t_model_offline(next_batch, inference=True)["time"]
+                next_time = next_out * (~sucess_next)
+                label0 = gamma*next_time + term1
+                label = label0 * (~success)
+                if self.t_model_name == "t_net":
+                    loss = combined_loss(pred, label.detach(), goal_states.detach(), t_scaler=self.t_model.scaler, d_scaler=self.t_model.defect_scaler, alpha=self.train_config["alpha"])
+                elif self.t_model_name == "t_net_binary":
+                    loss = combined_loss_binary(pred, label.detach(), goal_states.detach(), t_scaler=self.t_model.scaler, d_scaler=self.t_model.defect_scaler, alpha=self.train_config["alpha"])
+
+                loss.backward()
+                self.optimizer.step()
+                torch.nn.utils.clip_grad_norm_(self.t_model.parameters(), 1.2)
+                record += loss.detach().cpu()
+                Nstep += 1
+            torch.cuda.empty_cache()
+            val_loss = self.validate(epoch)
+            is_best = val_loss <= best_loss
+            best_loss = min(val_loss, best_loss)
+            self.scheduler.step(val_loss)
+            self.save_model(is_best=is_best)
+
+            if epoch % self.train_config["offline_update"] == 0:
+                self.t_model_offline.load_state_dict(self.t_model.state_dict())
+
+            with open(f"{self.task}/{self.train_config['loss_filename']}", 'a') as file:
+                file.write(str(epoch)+'\t'+str(float(record/Nstep))+'\n')
+
+    def validate(self, epoch):
+        """Validate the current state of the model using the validation set"""
+        self.t_model.eval()
         record = 0.
         Nstep = 0
-        pred_list = []
-        for i, batch in enumerate(dataloader):
-            optimizer.zero_grad()
-            batch = batch_to(batch, train_config["device"])
-            next_batch = batch_to(next(islice(next_data_loader, i, None)), train_config["device"])
-            pred = t_model(batch)
-            gamma = torch.exp(-batch["time"]/t_model.tau)
-            term1 = t_model.tau*(1-gamma)
-            success = (batch["time"]==0)
-            sucess_next = (batch["next_time"]==0)
-            goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device)*success
-            next_out = t_model_offline(next_batch)
-            next_time = next_out * (~sucess_next)
-            label0 = gamma*next_time + term1
-            label = label0 * (~success)
-            loss = combined_loss(pred, label.detach(), goal_states.detach(), t_scaler=t_model.scaler, d_scaler=t_model.defect_scaler, alpha=train_config["alpha"])
-            loss.backward()
-            optimizer.step()
-            torch.nn.utils.clip_grad_norm_(t_model.parameters(), 1.2)
-            record += loss
-            Nstep += 1
-            pred_list.append(pred.detach())
-            del label
-            del loss
-            del pred
-            torch.cuda.empty_cache()
-        values = torch.sort(torch.cat(pred_list, dim=0)).values
-        write_list = [float(values[int(u1)]) for u1 in np.linspace(0, len(values)-1, 6)]
-        logger.info(f"Epoch {epoch} | {write_list}")
-        t_model.save(f"{task}/{train_config['save_model_name']}")
-
-        if epoch % train_config["offline_update"]==0:
-            t_model_offline.load_state_dict(t_model.state_dict())
-
-        with open(train_config["loss_filename"], 'a') as file:
+        with torch.no_grad():
+            for i, batch in enumerate(self.val_dataloader):
+                batch = batch_to(batch, self.train_config["device"])
+                next_batch = batch_to(next(islice(self.val_dataloader_next, i, None)), self.train_config["device"])
+                pred = self.t_model(batch)
+                gamma = torch.exp(-batch["time"]/self.t_model.tau)
+                term1 = self.t_model.tau*(1-gamma)
+                success = (batch["time"] == 0)
+                sucess_next = (batch["next_time"] == 0)
+                goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device)*success
+                next_out = self.t_model_offline(next_batch, inference=True)["time"]
+                next_time = next_out * (~sucess_next)
+                label0 = gamma*next_time + term1
+                label = label0 * (~success)
+                if self.t_model_name == "t_net":
+                    loss = combined_loss(pred, label.detach(), goal_states.detach(), t_scaler=self.t_model.scaler, d_scaler=self.t_model.defect_scaler, alpha=self.train_config["alpha"])
+                elif self.t_model_name == "t_net_binary":
+                    loss = combined_loss_binary(pred, label.detach(), goal_states.detach(), t_scaler=self.t_model.scaler, d_scaler=self.t_model.defect_scaler, alpha=self.train_config["alpha"])
+                record += loss.detach().cpu()
+                Nstep += 1
+        with open(f"{self.task}/val_loss.txt", 'a') as file:
             file.write(str(epoch)+'\t'+str(float(record/Nstep))+'\n')
+        return record/Nstep
+
+    def save_model(self, is_best):
+        """Save the model to the specified path"""
+        self.t_model.save(f"{self.task}/checkpoint.pth.tar")
+        if is_best:
+            self.t_model.save(f"{self.task}/{self.train_config['save_model_name']}")

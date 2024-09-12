@@ -23,8 +23,7 @@ def process_trajectory(args):
     save_path = os.path.join(save_dir, f"{index}_SRO_results.json")
     with open(save_path, "w") as file:
         json.dump({"SRO": sro_results.tolist(), "info": info}, file)
-
-
+        
 
 @click.command()
 @click.option("-i", "--input_dir", required=True, type=click.Path(exists=True), help="Input dir containing diffussion info")

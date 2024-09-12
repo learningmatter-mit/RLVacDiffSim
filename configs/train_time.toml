@@ -4,8 +4,9 @@ filename = "train"
 name = "TRAIN-T"
 
 [model]
+"@name" = "t_net" 
 D_scaler = 0.00390625 # 1/256
-T_scaler_m = 7.918951990135469 
+T_scaler_m = 7918.951990135471 
 dropout_rate = 0.1 
 n_feat = 64 
 tau = 30 
@@ -23,6 +24,7 @@ num_dataset = 6000
 offline_update = 10
 save_model_name = "time_estimator.pth.tar"
 temperature = [300, 500, 700, 900]
+train_size = 0.8
 
 [train.dataset_path]
 next_state = "t_next_dataset.pth.tar"

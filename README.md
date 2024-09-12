@@ -2,7 +2,6 @@
 Reinforcement Learning driven simulation of vacancy diffusion
 
 ## TODO
-
 - [ ] Debug script
 - [ ] Documentation
 

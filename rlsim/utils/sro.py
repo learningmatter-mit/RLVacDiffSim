@@ -4,7 +4,7 @@ import numpy as np
 def get_sro(atoms_list):
     nframe = len(atoms_list)
 
-    species = list(set(atoms_list[0].get_atomic_numbers().tolist()))
+    species = list(sorted(set(atoms_list[0].get_atomic_numbers().tolist())))
     n_species = len(species)
     SRO = np.zeros((nframe, n_species, n_species))
     # info = {"species": species, "n_atoms": len(atoms_list[0])}
