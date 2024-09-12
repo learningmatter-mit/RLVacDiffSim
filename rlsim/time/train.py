@@ -46,13 +46,9 @@ class TimeTrainer:
         self.optimizer = Adam(self.t_model.parameters(), lr=self.train_config["lr"])
         self.scheduler = ReduceLROnPlateau(optimizer=self.optimizer, mode="min", factor=0.5, threshold=1e-2, threshold_mode="abs", patience=5)
         # Dataset
-        dataset_path = self.train_config.get('dataset_path', None)
-        if dataset_path is not None:
-            current_state_file = dataset_path['state']
-            next_state_file = dataset_path['next_state']
-        else:
-            current_state_file = f"{self.task}/dataset_current_made.pth"
-            next_state_file = f"{self.task}/dataset_next_made.pth"
+        dataset_path = self.train_config.pop('dataset_path')
+        current_state_file = dataset_path['state']
+        next_state_file = dataset_path['next_state']
         if os.path.isfile(current_state_file) and os.path.isfile(next_state_file):
             self.logger.info("Load Dataset")
             dataset = torch.load(current_state_file)
