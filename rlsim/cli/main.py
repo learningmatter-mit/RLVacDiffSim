@@ -22,6 +22,7 @@ def main(simulation, config_name):
     simulation (str): The type of operation to perform. Should be one of the following:
         - "rl-train": To train a Deep Q-Network (DQN) using the specified configuration file.
         - "rl-deploy": To deploy and run an RL simulation based on the specified configuration file.
+        - "time-train": To train a time estimator using the specified configuration file.
 
     config_name (str): The name of the configuration file (in TOML format) to be used for 
     the selected operation. This file should contain the necessary parameters for training 
@@ -36,6 +37,8 @@ def main(simulation, config_name):
 
     Deploy and run an RL simulation using the configuration in 'config.toml':
         $ rlsim rl-deploy -c config.toml
+    Train a time estimator using the configuration in 'config.toml':
+        $ rlsim time-train -c config.toml
     """
     with open(config_name, "r") as f:
         config = toml.load(f)
@@ -53,6 +56,6 @@ def main(simulation, config_name):
         t_trainer = TimeTrainer(task, logger, config)
         t_trainer.train()
     else:
-        raise click.UsageError(f"Unsupported simulation type: {simulation}. Please use 'rl-train', 'rl-deploy' or 'train-time'.")
+        raise click.UsageError(f"Unsupported simulation type: {simulation}. Please use 'rl-train', 'rl-deploy' or 'time-train'.")
 
 
