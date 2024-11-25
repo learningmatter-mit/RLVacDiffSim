@@ -7,7 +7,7 @@ name = "Gen Pretrain"
 horizon = 3
 n_episodes = 5
 n_poscars = [100]
-poscar_dir = ["/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"]
+poscar_dir = ["/path/to/poscars"] # Change this to the directory where your POSCAR files are stored.
 
 [simulation.calc_info]
 cutoff = 4.0

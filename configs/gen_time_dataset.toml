@@ -5,7 +5,7 @@ name = "Deploy"
 
 [model]
 "@name" = "dqn_v2"
-model_path = "/home/hojechun/github_repos/RLVacDiffSim/data/model_trained"
+model_path = "/path/to/dqn_model"
 [model.params]
 alpha = 1.0
 beta = 0.0

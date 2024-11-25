@@ -4,19 +4,19 @@ filename = "deploy"
 name = "Deploy"
 
 [model]
-"@name" = "dqn_v2"
-model_path = "/home/hojechun/github_repos/RLVacDiffSim/data/model_trained"
+"@name" = "dqn_v2" 
+model_path = "/path/to/dqn_model" # Change this to the path where your model is stored.'
 [model.params]
 alpha = 1.0
 beta = 0.0
 dqn = false
 
 [deploy]
-horizon = 10
-mode = "tks"
-n_episodes = 2
-n_poscars = 100
-poscar_dir = "/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"
+horizon = 10 
+mode = "tks" 
+n_episodes = 2 
+n_poscars = 100 
+poscar_dir = "/path/to/poscars" # Change this to the directory where your POSCAR files are stored.
 [deploy.simulation_params]
 temperature = 900
 

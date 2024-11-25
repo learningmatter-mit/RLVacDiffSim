@@ -13,7 +13,7 @@ beta = 0.0
 dqn = false
 [model.reaction_model]
 "@name" = "painn"
-model_path = "/home/hojechun/ssd_mnt/1-RLVacDiff/1-Models/best_model_mace_Vrandom_sum_0716.pth.tar"
+model_path = "/path/to/reaction_model"
 
 [train]
 horizon = 3
@@ -21,7 +21,7 @@ lr = 1e-5
 mode = "context_bandit"
 n_episodes = 5
 n_poscars = [100]
-poscar_dir = ["/home/hojechun/ssd_mnt/1-RLVacDiff/0-Poscars/POSCARs_256_1_defect"]
+poscar_dir = ["/path/to/poscars"] # Change this to the directory where your POSCAR files are stored.
 temperature = 900
 train_all = true
 [train.update_params]

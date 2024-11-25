@@ -12,19 +12,19 @@ n_feat = 64
 tau = 30 
 
 [train]
-alpha = 1.0
-batch_size = 32
-dataset_list = ["300.json", "500.json", "700.json", "900.json"]
-device = "cuda"
-dqn_model_path = "Vrandom_DQN_new_sum"
-epoch = 101
-loss_filename = "loss.txt"
-lr = 1e-5
-num_dataset = 6000
-offline_update = 10
-save_model_name = "time_estimator.pth.tar"
-temperature = [300, 500, 700, 900]
-train_size = 0.8
+alpha = 1.0 
+batch_size = 32 
+dataset_list = ["/path/to/dataset"] # paths to the dataset in .json format 
+device = "cuda" 
+dqn_model_path = "/path/to/dqn_model" # Change this to the path where your model is stored.'
+epoch = 101 
+loss_filename = "loss.txt" 
+lr = 1e-5 
+num_dataset = 6000 
+offline_update = 10 
+save_model_name = "time_estimator.pth.tar" 
+temperature = [300, 500, 700, 900] 
+train_size = 0.8 
 
 [train.dataset_path]
 next_state = "t_next_dataset.pth.tar"
