@@ -36,7 +36,7 @@ pip install -e ".[dev]" # For developer version
 
 ## Usage
 We provide scripts in command line interface (CLI).
-Trained models and initial poscars (256 atoms with mono vacancy) are saved in [zenodo]("TBD")
+Trained models and initial poscars (256 atoms with mono vacancy) are saved in [figshare]("https://doi.org/10.6084/m9.figshare.27931812")
 Exampeles are as follows:
 
 - Generate dataset for pre-trained reaction encodings
@@ -71,5 +71,13 @@ examples of configurations are saved in `conifgs`
 
 ## Citation
 ```
-TBD
+@misc{chun2024learningmeanpassagetime,
+      title={Learning Mean First Passage Time: Chemical Short-Range Order and Kinetics of Diffusive Relaxation}, 
+      author={Hoje Chun and Hao Tang and Rafael Gomez-Bombarelli and Ju Li},
+      year={2024},
+      eprint={2411.17839},
+      archivePrefix={arXiv},
+      primaryClass={cond-mat.mtrl-sci},
+      url={https://arxiv.org/abs/2411.17839}, 
+}
 ```
