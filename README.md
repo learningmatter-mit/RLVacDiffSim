@@ -37,6 +37,7 @@ pip install -e ".[dev]" # For developer version
 ## Usage
 We provide scripts in command line interface (CLI).
 Trained models and initial poscars (256 atoms with mono vacancy) are saved in [figshare]("https://doi.org/10.6084/m9.figshare.27931812")
+
 Exampeles are as follows:
 
 - Generate dataset for pre-trained reaction encodings
