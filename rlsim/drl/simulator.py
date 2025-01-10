@@ -110,13 +110,17 @@ class RLSimulator:
         return outputs
 
     def run_LSS(self, horizon, atoms_traj, logger, **simulation_params):
-        T_scheduler = ThermalAnnealing(total_horizon=horizon,
-                                       annealing_time=simulation_params["annealing_time"], 
-                                       T_start=simulation_params["T_start"], 
-                                       T_end=simulation_params["T_end"])
+        if simulation_params.get("annealing_time", None) is not None:
+            T_scheduler = ThermalAnnealing(total_horizon=horizon,
+                                           annealing_time=simulation_params["annealing_time"],
+                                           T_start=simulation_params["T_start"],
+                                           T_end=simulation_params["T_end"])
         Elist = [self.env.atoms.get_positions()[-1].tolist()]
         for tstep in range(horizon):
-            new_T = T_scheduler.get_temperature(tstep=tstep)
+            if simulation_params.get("annealing_time", None) is not None:
+                new_T = T_scheduler.get_temperature(tstep=tstep)
+            else:
+                new_T = simulation_params["temeperature"]
             self.update_q_params(**{"temperature": new_T})
             action_space = get_action_space(self.env)
             act_id, _, _ = self.select_action(action_space, new_T)
