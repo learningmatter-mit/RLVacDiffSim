@@ -22,7 +22,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     n_episodes = deploy_config.pop("n_episodes")
     horizon = deploy_config.pop("horizon")
     simulation_mode = deploy_config.pop("mode")
-    simulation_params = deploy_config.pop("simulation_params", None)
+    simulation_params = deploy_config.pop("simulation_params")
     if atoms_traj is not None:
         pool = atoms_traj
     else:
