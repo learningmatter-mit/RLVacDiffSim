@@ -120,7 +120,7 @@ class RLSimulator:
             if simulation_params.get("annealing_time", None) is not None:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
             else:
-                new_T = simulation_params["temeperature"]
+                new_T = simulation_params["temperature"]
             self.update_q_params(**{"temperature": new_T})
             action_space = get_action_space(self.env)
             act_id, _, _ = self.select_action(action_space, new_T)
