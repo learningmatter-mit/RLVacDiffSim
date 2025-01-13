@@ -106,7 +106,9 @@ class RLSimulator:
         if mode == "lss":
             outputs = self.run_LSS(horizon, atoms_traj, logger, **simulation_params)
         elif mode == "tks":
+            assert not self.q_params["dqn"], "TKS is only available for dqn==False."
             outputs = self.run_TKS(horizon, atoms_traj, logger, **simulation_params)
+        logger.info("Simulation finished.")
         return outputs
 
     def run_LSS(self, horizon, atoms_traj, logger, **simulation_params):
@@ -121,7 +123,6 @@ class RLSimulator:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
             else:
                 new_T = simulation_params["temperature"]
-            self.update_q_params(**{"temperature": new_T})
             action_space = get_action_space(self.env)
             act_id, _, _ = self.select_action(action_space, new_T)
             action = action_space[act_id]
@@ -129,7 +130,7 @@ class RLSimulator:
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
             energy = self.env.potential()
             Elist.append(energy)
-            if tstep % 10 == 0:
+            if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {new_T:.2f}, E: {energy:.3f}"
                 )
@@ -150,7 +151,7 @@ class RLSimulator:
             dt = 1 / Gamma * 10**-6 # 1/(microsecond)
             tlist.append(tlist[-1] + dt)
             clist.append(self.env.atoms.get_positions()[-1].tolist())
-            if tstep % 100 == 0:
+            if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {temperature:.2f}, E: {self.env.potential():.3f}"
                 )
