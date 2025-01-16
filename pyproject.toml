@@ -24,7 +24,6 @@ dependencies = [
   "rich",
   "tensorboard",
   "matscipy",
-  "ase-extension",
   "jupyter",
   "mace-torch",
 ]

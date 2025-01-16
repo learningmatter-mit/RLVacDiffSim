@@ -18,8 +18,8 @@ conda activate rlsim-env
 ```bash
 
 conda install pytorch=2.2.0 torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-pip install torch_geometric
 pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.2.0+cu121.html
+pip install torch_geometric
 
 ```
 
@@ -36,7 +36,7 @@ pip install -e ".[dev]" # For developer version
 
 ## Usage
 We provide scripts in command line interface (CLI).
-Trained models and initial poscars (256 atoms with mono vacancy) are saved in [figshare]("https://doi.org/10.6084/m9.figshare.27931812")
+Trained models and initial poscars (256 atoms with mono vacancy) are saved in figshare [TBD]
 
 Exampeles are as follows:
 
