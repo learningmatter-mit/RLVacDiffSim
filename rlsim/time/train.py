@@ -135,7 +135,10 @@ class TimeTrainer:
                 success = (batch["time"] == 0)
                 sucess_next = (batch["next_time"] == 0)
                 goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device)*success
-                next_out = self.t_model_offline(next_batch, inference=True)["time"]
+                if self.t_model_name == "t_net":
+                    next_out = self.t_model_offline(next_batch)["time"]
+                elif self.t_model_name == "t_net_binary":
+                    next_out = self.t_model_offline(next_batch, inference=True)["time"]
                 next_time = next_out * (~sucess_next)
                 label0 = gamma*next_time + term1
                 label = label0 * (~success)
@@ -178,7 +181,10 @@ class TimeTrainer:
                 success = (batch["time"] == 0) # Goal state
                 sucess_next = (batch["next_time"] == 0) # Goal state
                 goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device)*success
-                next_out = self.t_model_offline(next_batch, inference=True)["time"]
+                if self.t_model_name == "t_net":
+                    next_out = self.t_model_offline(next_batch)["time"]
+                elif self.t_model_name == "t_net_binary":
+                    next_out = self.t_model_offline(next_batch, inference=True)["time"]
                 next_time = next_out * (~sucess_next)
                 label0 = gamma*next_time + term1
                 label = label0 * (~success)
