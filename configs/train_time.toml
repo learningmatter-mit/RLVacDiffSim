@@ -9,12 +9,13 @@ D_scaler = 0.00390625 # 1/256
 T_scaler_m = 7918.951990135471 
 dropout_rate = 0.1 
 n_feat = 64 
+pooling = "mean" 
 tau = 30 
 
 [train]
-alpha = 1.0 
-batch_size = 32 
-dataset_list = ["/path/to/dataset"] # paths to the dataset in .json format 
+alpha = 1.0
+batch_size = 32
+# dataset_list = ["/path/to/dataset"] # paths to the dataset in .json format    
 device = "cuda" 
 dqn_model_path = "/path/to/dqn_model" # Change this to the path where your model is stored.'
 epoch = 101 
@@ -23,9 +24,14 @@ lr = 1e-5
 num_dataset = 6000 
 offline_update = 10 
 save_model_name = "time_estimator.pth.tar" 
-temperature = [300, 500, 700, 900] 
-train_size = 0.8 
-
+# temperature = [300, 500, 700, 900] 
+train_size = 0.8
 [train.dataset_path]
+300 = "/path/to/dataset_300.json"
+500 = "/path/to/dataset_500.json"
+700 = "/path/to/dataset_700.json"
+900 = "/path/to/dataset_900.json"
+
+[train.save_dataset_path]
 next_state = "t_next_dataset.pth.tar"
 state = "t_dataset.pth.tar"

@@ -32,16 +32,16 @@ def process_trajectory(args):
 def main(input_dir, num_files, save_dir):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
-    traj_l = []
+    # traj_l = []
     for i in tqdm(range(num_files), desc="Reading trajectories"):
         filename = os.path.join(input_dir, f"XDATCAR{i}")
         traj = io.read(filename, index=':')
-        # process_trajectory((traj, save_dir, i))
-        traj_l.append(traj)
+        process_trajectory((traj, save_dir, i))
+        # traj_l.append(traj)
 
-    # Prepare arguments for multiprocessing
-    args = [(traj, save_dir, i) for i, traj in enumerate(traj_l)]
-    # Use multiprocessing pool
-    with mp.Pool(num_files) as pool:
-        list(tqdm(pool.imap(process_trajectory, args), total=len(traj_l), desc="Processing trajectories"))
+    # # Prepare arguments for multiprocessing
+    # args = [(traj, save_dir, i) for i, traj in enumerate(traj_l)]
+    # # Use multiprocessing pool
+    # with mp.Pool(num_files) as pool:
+    #     list(tqdm(pool.imap(process_trajectory, args), total=len(traj_l), desc="Processing trajectories"))
 
