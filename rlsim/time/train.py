@@ -36,7 +36,6 @@ class TimeTrainer:
 
         self.train_config = self.config["train"]
         # Convert to list of dictionaries
-        dataset_list = [{int(k): v} for k, v in config["train"].pop("dataset_path").items()]
         dqn_model_path = self.config["train"].pop("dqn_model_path")
         t_model_config = self.config["model"]
         dqn_model = registry.get_model_class("dqn_v2").load(f"{dqn_model_path}")
@@ -56,6 +55,7 @@ class TimeTrainer:
             dataset_next = torch.load(next_state_file)
         else:
             self.logger.info("Make Dataset")
+            dataset_list = [{int(k): v} for k, v in config["train"].pop("dataset_path").items()]
             data_read = []
             temperature_list = []
             for dset_path in dataset_list:
