@@ -49,10 +49,13 @@ class TimeTrainer:
         dataset_path = self.train_config.pop('save_dataset_path')
         current_state_file = dataset_path['state']
         next_state_file = dataset_path['next_state']
-        if os.path.isfile(current_state_file) and os.path.isfile(next_state_file):
+        if os.path.isfile(current_state_file["train"]) and os.path.isfile(next_state_file["train"]) and os.path.isfile(current_state_file["val"]) and os.path.isfile(next_state_file["val"]):
             self.logger.info("Load Dataset")
-            dataset = torch.load(current_state_file)
-            dataset_next = torch.load(next_state_file)
+            train_dataset = torch.load(current_state_file["train"])
+            train_dataset_next = torch.load(next_state_file["train"])
+            val_dataset = torch.load(current_state_file["val"])
+            val_dataset_next = torch.load(next_state_file["val"])
+
         else:
             self.logger.info("Make Dataset")
             dataset_list = [{int(k): v} for k, v in config["train"].pop("dataset_path").items()]
@@ -67,13 +70,20 @@ class TimeTrainer:
                             temperature_list.append(temperature)
             filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final = preprcess_time(data_read, self.train_config, temperature_list)
             dataset, dataset_next = make_t_dataset(filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final, cutoff=self.t_model.cutoff)
+            (train_dataset, val_dataset), (train_idx, val_idx) = dataset.train_val_split(train_size=self.train_config["train_size"], return_idx=True)
+            train_dataset_next = dataset_next[train_idx]
+            val_dataset_next = dataset_next[val_idx]
             torch.save(dataset, current_state_file)
             torch.save(dataset_next, next_state_file)
+            torch.save(train_dataset, f"{current_state_file.split('.')[0]}_train.pth.tar")
+            torch.save(train_dataset_next, f"{next_state_file.split('.')[0]}_train.pth.tar")
+            torch.save(val_dataset, f"{current_state_file.split('.')[0]}_val.pth.tar")
+            torch.save(val_dataset_next, f"{next_state_file.split('.')[0]}_val.pth.tar")
         goal_state_count = 0
-        for data in dataset:
+        for data in train_dataset:
             if data["time"] == 0:
                 goal_state_count += 1
-        self.logger.info(f"Goal state count: {goal_state_count} / {len(dataset)}")
+        self.logger.info(f"Goal state count: {goal_state_count} / {len(train_dataset)}")
         toml.dump(self.config, open(f"{self.task}/config_copied.toml", "w"))
 
         with open(f"{self.task}/loss.txt", 'w') as file:
@@ -82,9 +92,6 @@ class TimeTrainer:
         with open(f"{self.task}/val_loss.txt", 'w') as file:
             file.write('Epoch\t Loss\n')
 
-        (train_dataset, val_dataset), (train_idx, val_idx) = dataset.train_val_split(train_size=self.train_config["train_size"], return_idx=True)
-        train_dataset_next = dataset_next[train_idx]
-        val_dataset_next = dataset_next[val_idx]
 
         if self.train_config.get("sampler", None) == "imbalance":
             self.logger.info("Using imbalance sampler")
