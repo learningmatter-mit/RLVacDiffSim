@@ -35,7 +35,8 @@ class TimeTrainer:
         self.config = config
 
         self.train_config = self.config["train"]
-        dataset_list = self.config["train"].pop("dataset_list")
+        # Convert to list of dictionaries
+        dataset_list = [{int(k): v} for k, v in config["train"].pop("dataset_path").items()]
         dqn_model_path = self.config["train"].pop("dqn_model_path")
         t_model_config = self.config["model"]
         dqn_model = registry.get_model_class("dqn_v2").load(f"{dqn_model_path}")
@@ -46,7 +47,7 @@ class TimeTrainer:
         self.optimizer = Adam(self.t_model.parameters(), lr=self.train_config["lr"])
         self.scheduler = ReduceLROnPlateau(optimizer=self.optimizer, mode="min", factor=0.5, threshold=1e-2, threshold_mode="abs", patience=5)
         # Dataset
-        dataset_path = self.train_config.pop('dataset_path')
+        dataset_path = self.train_config.pop('save_dataset_path')
         current_state_file = dataset_path['state']
         next_state_file = dataset_path['next_state']
         if os.path.isfile(current_state_file) and os.path.isfile(next_state_file):
@@ -57,12 +58,13 @@ class TimeTrainer:
             self.logger.info("Make Dataset")
             data_read = []
             temperature_list = []
-            for i, dset_path in enumerate(dataset_list):
-                with open(dset_path) as file:
-                    data = json.load(file)
-                    data_read += data
-                    for _ in range(len(data)):
-                        temperature_list.append(self.train_config["temperature"][i])
+            for dset_path in dataset_list:
+                for temperature, dataset_filename in dset_path.items():
+                    with open(dataset_filename) as file:
+                        data = json.load(file)
+                        data_read += data
+                        for _ in range(len(data)):
+                            temperature_list.append(temperature)
             filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final = preprcess_time(data_read, self.train_config, temperature_list)
             dataset, dataset_next = make_t_dataset(filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final, cutoff=self.t_model.cutoff)
             torch.save(dataset, current_state_file)
@@ -166,8 +168,8 @@ class TimeTrainer:
                 pred = self.t_model(batch)
                 gamma = torch.exp(-batch["time"]/self.t_model.tau)
                 term1 = self.t_model.tau*(1-gamma)
-                success = (batch["time"] == 0)
-                sucess_next = (batch["next_time"] == 0)
+                success = (batch["time"] == 0) # Goal state
+                sucess_next = (batch["next_time"] == 0) # Goal state
                 goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device)*success
                 next_out = self.t_model_offline(next_batch, inference=True)["time"]
                 next_time = next_out * (~sucess_next)
