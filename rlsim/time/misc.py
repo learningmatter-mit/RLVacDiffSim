@@ -93,9 +93,9 @@ def get_total_n_atoms(n_atoms):
     elif n_atoms >= 200 and n_atoms < 300:
         total_n_atoms = 256
     elif n_atoms >=300 and n_atoms <600:
-        total_n_atoms = 512
+        total_n_atoms = 500
     elif n_atoms >=600 and n_atoms < 900:
-        total_n_atoms = 856
+        total_n_atoms = 864
     return total_n_atoms
 
 
