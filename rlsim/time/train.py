@@ -25,7 +25,7 @@ from rlsim.time.misc import (combined_loss, combined_loss_binary,
                              get_time_imbalance_sampler, make_t_dataset,
                              preprcess_time)
 
-BEST_LOSS = 1e10
+BEST_LOSS = 1e18
 
 
 class TimeTrainer:
@@ -75,10 +75,8 @@ class TimeTrainer:
             val_dataset_next = dataset_next[val_idx]
             torch.save(dataset, current_state_file)
             torch.save(dataset_next, next_state_file)
-            torch.save(train_dataset, f"{current_state_file.split('.')[0]}_train.pth.tar")
-            torch.save(train_dataset_next, f"{next_state_file.split('.')[0]}_train.pth.tar")
-            torch.save(val_dataset, f"{current_state_file.split('.')[0]}_val.pth.tar")
-            torch.save(val_dataset_next, f"{next_state_file.split('.')[0]}_val.pth.tar")
+        self.logger.info(f"Train dataset size: {len(train_dataset)}")
+        self.logger.info(f"Val dataset size: {len(val_dataset)}")
         goal_state_count = 0
         for data in train_dataset:
             if data["time"] == 0:
@@ -132,8 +130,8 @@ class TimeTrainer:
                 pred = self.t_model(batch)
                 gamma = torch.exp(-batch["time"]/self.t_model.tau)
                 term1 = self.t_model.tau*(1-gamma)
-                success = (batch["time"] == 0)
-                sucess_next = (batch["next_time"] == 0)
+                success = (batch["time"] == 0) # Goal state
+                sucess_next = (batch["next_time"] == 0) # Goal state
                 goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device)*success
                 if self.t_model_name == "t_net":
                     next_out = self.t_model_offline(next_batch)["time"]
@@ -196,6 +194,7 @@ class TimeTrainer:
                 Nstep += 1
         with open(f"{self.task}/val_loss.txt", 'a') as file:
             file.write(str(epoch)+'\t'+str(float(record/Nstep))+'\n')
+        self.t_model.train()
         return record/Nstep
 
     def save_model(self, is_best):
