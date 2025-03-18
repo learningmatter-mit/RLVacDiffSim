@@ -13,7 +13,7 @@ from tqdm import tqdm
 from rlsim.utils.sro import get_sro
 
 
-def timer_converter(t, tau=30, threshold=0.9999):
+def timer_converter(t, tau=30, threshold=0.9999): # tau = 30 micro seconds (500 K)
     if t < threshold * tau:
         return -tau * torch.log(1 - t / tau)
     else:
