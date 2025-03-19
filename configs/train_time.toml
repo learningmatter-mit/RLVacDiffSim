@@ -10,28 +10,36 @@ T_scaler_m = 7918.951990135471
 dropout_rate = 0.1 
 n_feat = 64 
 pooling = "mean" 
-tau = 30 
+tau = 1.0 
 
 [train]
-alpha = 1.0
-batch_size = 32
-# dataset_list = ["/path/to/dataset"] # paths to the dataset in .json format    
+batch_size = 32 
 device = "cuda" 
 dqn_model_path = "/path/to/dqn_model" # Change this to the path where your model is stored.'
 epoch = 101 
 loss_filename = "loss.txt" 
 lr = 1e-5 
-num_dataset = 6000 
 offline_update = 10 
+omega_g = 1.0 
+omega_t = 1.0 
 save_model_name = "time_estimator.pth.tar" 
-# temperature = [300, 500, 700, 900] 
-train_size = 0.8
-[train.dataset_path]
-300 = "/path/to/dataset_300.json"
-500 = "/path/to/dataset_500.json"
-700 = "/path/to/dataset_700.json"
-900 = "/path/to/dataset_900.json"
 
-[train.save_dataset_path]
-next_state = "t_next_dataset.pth.tar"
-state = "t_dataset.pth.tar"
+# When using the dataset_path, the dataset_list is not needed.
+# num_dataset = 6000 
+# train_size = 0.8
+# [train.dataset_path]
+# 300 = "/path/to/dataset_300.json"
+# 500 = "/path/to/dataset_500.json"
+# 700 = "/path/to/dataset_700.json"
+# 900 = "/path/to/dataset_900.json"
+# [train.save_dataset_path]
+# next_state = "t_next_dataset.pth.tar"
+# state = "t_dataset.pth.tar"
+
+# When using existing dataset.
+[train.save_dataset_path.state]
+train = "train_set.pth.tar"
+val = "val_set.pth.tar"
+[train.save_dataset_path.next_state]
+train = "train_set_next.pth.tar"
+val = "val_set_next.pth.tar"
