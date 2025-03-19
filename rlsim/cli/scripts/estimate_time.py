@@ -21,7 +21,7 @@ def timer_converter(t, tau=30, threshold=0.9999): # tau = 30 micro seconds (500 
         return tau * (t / tau - 1 + torch.log(torch.tensor(threshold, device=t.device, dtype=t.dtype)))
 
 
-def estimate_time(model, temperature, concentration, traj_l, time_file, sro_file, device):
+def estimate_time(model_name, model, temperature, concentration, traj_l, time_file, sro_file, device):
     out = []
     # sro_out = []
     for i, traj in enumerate(traj_l):
@@ -33,7 +33,10 @@ def estimate_time(model, temperature, concentration, traj_l, time_file, sro_file
             k = 10*j
             data = AtomsGraph.from_ase(traj[k], model.cutoff, read_properties=False, neighborlist_backend="ase", add_batch=True)
             batch = batch_to(data, device)
-            pred_time = model(batch, temperature=temperature, defect=concentration, inference=True)["time"]
+            if model_name == "t_net_binary":
+                pred_time = model(batch, temperature=temperature, defect=concentration, inference=True)["time"]
+            else:
+                pred_time = model(batch, temperature=temperature, defect=concentration)["time"]
             time_real = timer_converter(pred_time, model.tau)
             # sro_norm = np.linalg.norm(sro_results[k])
             # sro_out[-1].extend([sro_norm])
@@ -52,7 +55,7 @@ def estimate_time(model, temperature, concentration, traj_l, time_file, sro_file
 @click.option("-m", "--model_info", required=True, nargs=2, help="Time estimator model (model name and path)")
 @click.option("-v", "--vacancy-info", nargs=2, required=True, type=int, help="Vacancy concentration and ideal number of atoms")
 @click.option("-t", "--temperature", required=True, type=int, help="Temperature of the simulation")
-@click.option("-i", "--input_dir", required=True, type=click.Path(exists=True), help="Input dir containing diffussion info")
+@click.option("-i", "--input_dir", required=True, type=click.Path(exists=True), help="Input dir containing trajectory files (XDATCAR) to read from.")
 @click.option("-n", "--num_files", required=True, type=int, help="numer of XDATCAR files")
 @click.option("-s", "--save_dir", required=True, default="./", type=click.Path(), help="Directory to save the results")
 @click.option("-d", "--device", default="cuda", help="Device to run the model (default: 'cuda')")
@@ -93,4 +96,4 @@ def main(model_info, vacancy_info, temperature, input_dir, num_files, save_dir, 
     # Output filenames
     print(f"Time: {time_filename},  SRO: {sro_filename}")
     # Run time estimation
-    estimate_time(model, temperature, defect, traj_l, time_filename, sro_filename, device)
+    estimate_time(model_name, model, temperature, defect, traj_l, time_filename, sro_filename, device)
