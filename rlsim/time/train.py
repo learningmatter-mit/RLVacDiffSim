@@ -42,6 +42,7 @@ class TimeTrainer:
         reaction_model = dqn_model.reaction_model
         self.t_model_name = t_model_config.pop("@name")
         self.t_model = registry.get_model_class(self.t_model_name).load_representation(reaction_model, **t_model_config)
+        self.logger.info(f"Training timescape estimator with {self.t_model_name}")
         self.t_model_offline = registry.get_model_class(self.t_model_name).load_representation(reaction_model, **t_model_config)
         self.optimizer = Adam(self.t_model.parameters(), lr=self.train_config["lr"])
         self.scheduler = ReduceLROnPlateau(optimizer=self.optimizer, mode="min", factor=0.5, threshold=1e-2, threshold_mode="abs", patience=5)
@@ -50,14 +51,14 @@ class TimeTrainer:
         current_state_file = dataset_path['state']
         next_state_file = dataset_path['next_state']
         if os.path.isfile(current_state_file["train"]) and os.path.isfile(next_state_file["train"]) and os.path.isfile(current_state_file["val"]) and os.path.isfile(next_state_file["val"]):
-            self.logger.info("Load Dataset")
+            self.logger.info("Load Dataset...")
             train_dataset = torch.load(current_state_file["train"])
             train_dataset_next = torch.load(next_state_file["train"])
             val_dataset = torch.load(current_state_file["val"])
             val_dataset_next = torch.load(next_state_file["val"])
 
         else:
-            self.logger.info("Make Dataset")
+            self.logger.info("Make Dataset...")
             dataset_list = [{int(k): v} for k, v in config["train"].pop("dataset_path").items()]
             data_read = []
             temperature_list = []
@@ -113,13 +114,13 @@ class TimeTrainer:
                                                   sampler=val_sampler)
 
     def train(self, best_loss=BEST_LOSS):
-        self.logger.info(f"Training Time model in: {os.path.realpath(self.task)}")
+        self.logger.info(f"Working directory: {os.path.realpath(self.task)}")
 
         self.t_model.train()
         self.t_model_offline.eval()
         self.t_model.to(self.train_config["device"])
         self.t_model_offline.to(self.train_config["device"])
-        self.logger.info("Start Training")
+        self.logger.info("Start Training...")
         for epoch in range(self.train_config["epoch"]):
             record = 0.
             Nstep = 0

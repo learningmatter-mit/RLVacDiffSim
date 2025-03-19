@@ -159,11 +159,12 @@ def combined_loss(prediction, time_labels,  goal_labels, t_scaler, d_scaler, ome
     scaled_preds = time_predictions / total_scaler
     scaled_labels = time_labels / total_scaler
     time_loss = torch.mean((scaled_preds[is_not_goal_state]- scaled_labels[is_not_goal_state])**2)
+    goal_loss = torch.mean(scaled_preds[~is_not_goal_state]**2)
     if len(scaled_preds[~is_not_goal_state]) !=0:
-        goal_loss = torch.mean((scaled_preds[~is_not_goal_state]- scaled_labels[~is_not_goal_state])**2)
+        # goal_loss = torch.mean((scaled_preds[~is_not_goal_state]- scaled_labels[~is_not_goal_state])**2)
         total_loss = (omega_g*goal_loss + omega_t*time_loss) 
     else:
-        total_loss = time_loss
+        total_loss = omega_t*time_loss
     return total_loss
 
 
@@ -175,12 +176,15 @@ def combined_loss_binary(prediction, time_labels,  goal_labels, t_scaler, d_scal
     scaled_preds = time_predictions / total_scaler
     scaled_labels = time_labels / total_scaler
     time_loss = torch.mean((scaled_preds[is_not_goal_state]- scaled_labels[is_not_goal_state])**2)
+    goal_loss = torch.mean(scaled_preds[~is_not_goal_state]**2)
+    goal_loss_binary = F.binary_cross_entropy_with_logits(prediction["goal"], goal_labels)
+    total_loss = omega_g*goal_loss + omega_t*time_loss + omega_cls*goal_loss_binary
     if len(scaled_preds[~is_not_goal_state]) !=0:
-        goal_loss = torch.mean((scaled_preds[~is_not_goal_state]- scaled_labels[~is_not_goal_state])**2)
-        goal_loss_binary = F.binary_cross_entropy_with_logits(prediction["goal"], goal_labels)
-        total_loss = (omega_g*goal_loss + omega_t*time_loss) 
+        # goal_loss = torch.mean((scaled_preds[~is_not_goal_state]- scaled_labels[~is_not_goal_state])**2)
+        # goal_loss_binary = F.binary_cross_entropy_with_logits(prediction["goal"], goal_labels)
+        total_loss = omega_g*goal_loss + omega_t*time_loss + omega_cls*goal_loss_binary
     else:
-        total_loss = time_loss
+        total_loss = omega_t*time_loss + omega_cls*goal_loss_binary
     return total_loss
 
 
