@@ -141,9 +141,24 @@ class TimeTrainer:
                 label0 = gamma*next_time + term1
                 label = label0 * (~success)
                 if self.t_model_name == "t_net":
-                    loss = combined_loss(pred, label.detach(), goal_states.detach(), t_scaler=self.t_model.scaler, d_scaler=self.t_model.defect_scaler, alpha=self.train_config["alpha"])
+                    loss = combined_loss(pred, 
+                                         label.detach(), 
+                                         goal_states.detach(), 
+                                         t_scaler=self.t_model.scaler, 
+                                         d_scaler=self.t_model.defect_scaler, 
+                                         omega_g=self.train_config["omega_g"],
+                                         omega_t=self.train_config.get("omega_t", 1.0),
+                                         )
                 elif self.t_model_name == "t_net_binary":
-                    loss = combined_loss_binary(pred, label.detach(), goal_states.detach(), t_scaler=self.t_model.scaler, d_scaler=self.t_model.defect_scaler, alpha=self.train_config["alpha"])
+                    loss = combined_loss_binary(pred, 
+                                                label.detach(), 
+                                                goal_states.detach(), 
+                                                t_scaler=self.t_model.scaler, 
+                                                d_scaler=self.t_model.defect_scaler, 
+                                                omega_g=self.train_config["omega_g"],
+                                                omega_t=self.train_config.get("omega_t", 1.0),
+                                                omega_cls=self.train_config.get("omega_cls", 1.0), 
+                                                )
 
                 loss.backward()
                 self.optimizer.step()
@@ -187,9 +202,24 @@ class TimeTrainer:
                 label0 = gamma*next_time + term1
                 label = label0 * (~success)
                 if self.t_model_name == "t_net":
-                    loss = combined_loss(pred, label.detach(), goal_states.detach(), t_scaler=self.t_model.scaler, d_scaler=self.t_model.defect_scaler, alpha=self.train_config["alpha"])
+                    loss = combined_loss(pred, 
+                                         label.detach(), 
+                                         goal_states.detach(), 
+                                         t_scaler=self.t_model.scaler, 
+                                         d_scaler=self.t_model.defect_scaler, 
+                                         omega_g=self.train_config["omega_g"],
+                                         omega_t=self.train_config.get("omega_t", 1.0),
+                                         )
                 elif self.t_model_name == "t_net_binary":
-                    loss = combined_loss_binary(pred, label.detach(), goal_states.detach(), t_scaler=self.t_model.scaler, d_scaler=self.t_model.defect_scaler, alpha=self.train_config["alpha"])
+                    loss = combined_loss_binary(pred, 
+                                                label.detach(), 
+                                                goal_states.detach(), 
+                                                t_scaler=self.t_model.scaler, 
+                                                d_scaler=self.t_model.defect_scaler, 
+                                                omega_g=self.train_config["omega_g"],
+                                                omega_t=self.train_config.get("omega_t", 1.0),
+                                                omega_cls=self.train_config.get("omega_cls", 1.0), 
+                                                )
                 record += loss.detach().cpu()
                 Nstep += 1
         with open(f"{self.task}/val_loss.txt", 'a') as file:
