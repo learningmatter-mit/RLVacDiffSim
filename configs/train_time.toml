@@ -10,7 +10,7 @@ T_scaler_m = 7918.951990135471
 dropout_rate = 0.1 
 n_feat = 64 
 pooling = "mean" 
-tau = 1.0 
+tau0 = 1.0 
 
 [train]
 batch_size = 32 
