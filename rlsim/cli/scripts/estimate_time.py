@@ -33,10 +33,7 @@ def estimate_time(model_name, model, temperature, concentration, traj_l, time_fi
             k = 10*j
             data = AtomsGraph.from_ase(traj[k], model.cutoff, read_properties=False, neighborlist_backend="ase", add_batch=True)
             batch = batch_to(data, device)
-            if model_name == "t_net_binary":
-                pred_time = model(batch, temperature=temperature, defect=concentration, inference=True)["time"]
-            else:
-                pred_time = model(batch, temperature=temperature, defect=concentration)["time"]
+            pred_time = model(batch, temperature=temperature, defect=concentration, inference=True)["time"]
             time_real = timer_converter(pred_time, model.tau)
             # sro_norm = np.linalg.norm(sro_results[k])
             # sro_out[-1].extend([sro_norm])
