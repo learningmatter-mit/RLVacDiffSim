@@ -130,9 +130,13 @@ class TimeTrainer:
                 self.logger.info(f"Batch: {i} / {len(loader_dset)-1}, Loss: {record/Nstep:.4f}")
                 loss.backward()
                 self.optimizer.step()
-                del batch
-                del next_batch
                 torch.nn.utils.clip_grad_norm_(self.t_model.parameters(), 1.2)
+                # Clear memory
+                del pred, gamma, term1, success, sucess_next, goal_states
+                del next_out, next_time, label0, label, loss
+                del batch, next_batch
+                torch.cuda.empty_cache()
+
             del loader_dset
             del loader_dset_next
             torch.cuda.empty_cache()
@@ -186,6 +190,12 @@ class TimeTrainer:
                                                 )
                 record += loss.detach().cpu()
                 Nstep += 1
+                # Clear memory
+                del pred, gamma, term1, success, sucess_next, goal_states
+                del next_out, next_time, label0, label, loss
+                del batch, next_batch
+                torch.cuda.empty_cache()
+                
         self.logger.info(f"Epoch: {epoch} / {self.train_config['epoch']}, VAL Loss: {float(record/Nstep):.4f}")
         with open(f"{self.task}/val_loss.txt", 'a') as file:
             file.write(str(epoch)+'\t'+str(float(record/Nstep))+'\n')
