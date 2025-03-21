@@ -148,7 +148,7 @@ class TimeTrainer:
             torch.cuda.empty_cache()
             self.logger.info(f"Epoch: {epoch} / {self.train_config['epoch']}, Loss: {float(record/Nstep):.4f}")
             val_loss = self.validate(epoch)
-            is_best = True if epoch == len(self.train_config['epoch']) - 1 else False
+            is_best = True if epoch == self.train_config['epoch'] - 1 else False
             # best_loss = min(val_loss, best_loss)
             self.scheduler.step(val_loss)
             self.save_model(epoch, is_best=is_best)
