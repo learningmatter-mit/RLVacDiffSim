@@ -2,50 +2,68 @@ import json
 import os
 
 import click
-import numpy as np
 import torch
 from ase import io
 from rgnn.common.registry import registry
 from rgnn.graph.atoms import AtomsGraph
+from rgnn.graph.dataset.atoms import AtomsDataset
 from rgnn.graph.utils import batch_to
+from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
-from rlsim.utils.sro import get_sro
+
+def timer_converter(t, tau, threshold=0.9999):
+    """
+    Converts time values in a batch-wise manner.
+
+    Args:
+        t (torch.Tensor): Input tensor of time values.
+        tau (float or torch.Tensor): Time constant (can be scalar or tensor).
+        threshold (float, optional): Threshold value for switching to linear approximation.
+
+    Returns:
+        torch.Tensor: Converted time values with batch support.
+    """
+    # Create a mask for values below threshold * tau
+    mask = t < threshold * tau
+
+    # Compute values for both cases
+    log_values = -tau * torch.log(1 - t / tau)
+    linear_values = tau * (t / tau - 1 + torch.log(torch.tensor(threshold, device=t.device, dtype=t.dtype)))
+
+    # Apply mask to select appropriate values
+    return torch.where(mask, log_values, linear_values)
 
 
-def timer_converter(t, tau=30, threshold=0.9999): # tau = 30 micro seconds (500 K)
-    if t < threshold * tau:
-        return -tau * torch.log(1 - t / tau)
-    else:
-        # Linear approximation for large t values
-        return tau * (t / tau - 1 + torch.log(torch.tensor(threshold, device=t.device, dtype=t.dtype)))
-
-
-def estimate_time(model_name, model, temperature, concentration, traj_l, time_file, sro_file, device):
+def estimate_time(model, temperature, defect, traj_l, time_file, batch_size, device):
     out = []
-    # sro_out = []
     for i, traj in enumerate(traj_l):
-        # sro_results = get_sro(traj) 
-        n_frames = len(traj)
-        out.append([])
-        # sro_out.append([])
-        for j in range(int(n_frames/10)):
-            k = 10*j
-            data = AtomsGraph.from_ase(traj[k], model.cutoff, read_properties=False, neighborlist_backend="ase", add_batch=True)
-            batch = batch_to(data, device)
-            pred_time = model(batch, temperature=temperature, defect=concentration, inference=True)["time"]
+        # n_frames = len(traj)
+        time_list = []
+        datas_list = []
+        print(f"Traj {i+1}/{len(traj_l)}.")
+        for atoms in traj:
+            data = AtomsGraph.from_ase(atoms, model.cutoff, read_properties=False, neighborlist_backend="torch")
+            data.T = torch.as_tensor(temperature,
+                            dtype=torch.get_default_dtype(),
+                            device=data["elems"].device)
+            data.defect = torch.as_tensor(defect,
+                            dtype=torch.get_default_dtype(),
+                            device=data["elems"].device)
+            datas_list.append(data)
+        dataset = AtomsDataset(datas_list)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        for batch in loader:
+            batch = batch_to(batch, device)
+            pred_time = model(batch, inference=True)["time"]
             time_real = timer_converter(pred_time, model.tau)
-            # sro_norm = np.linalg.norm(sro_results[k])
-            # sro_out[-1].extend([sro_norm])
-            out[-1].extend([float(time_real.detach())])
-            if k % 50 == 0:
-                print(f"Complete {i+1}/{len(traj_l)} | {(k/n_frames*100):.2f} % | Time: {time_real.detach().item():.2f}")# | SRO: {sro_norm:.2f}")
-    # out = np.transpose(np.array(out)).tolist()
-    # sro_out = np.transpose(np.array(sro_out)).tolist()
+            time_list.append(time_real.detach().cpu())
+            del batch
+        del loader, dataset
+        out.append(torch.cat(time_list, dim=0).tolist())
+
     with open(time_file, "w") as file:
         json.dump(out, file)
-    # with open(sro_file, "w") as file:
-    #     json.dump(sro_out, file)
 
 
 @click.command()
@@ -55,8 +73,10 @@ def estimate_time(model_name, model, temperature, concentration, traj_l, time_fi
 @click.option("-i", "--input_dir", required=True, type=click.Path(exists=True), help="Input dir containing trajectory files (XDATCAR) to read from.")
 @click.option("-n", "--num_files", required=True, type=int, help="numer of XDATCAR files")
 @click.option("-s", "--save_dir", required=True, default="./", type=click.Path(), help="Directory to save the results")
+@click.option("--skip", default=1, type=int, help="Skip every n frames")
+@click.option("-b", "--batch_size", default=8, type=int, help="Batch size for the DataLoader")
 @click.option("-d", "--device", default="cuda", help="Device to run the model (default: 'cuda')")
-def main(model_info, vacancy_info, temperature, input_dir, num_files, save_dir, device):
+def main(model_info, vacancy_info, temperature, input_dir, num_files, save_dir, skip, batch_size, device):
     """
     Main command-line interface for time estimation simulation.
 
@@ -80,17 +100,14 @@ def main(model_info, vacancy_info, temperature, input_dir, num_files, save_dir, 
 
     # Read atoms
     traj_l = []
-    for i in tqdm(range(num_files), desc="Reading trajectories"):
+    for i in tqdm(range(num_files), desc=f"Reading trajectories in {input_dir}"):
         filename = os.path.join(input_dir, f"XDATCAR{i}")
-        traj = io.read(filename, index=':')
-        # process_trajectory((traj, save_dir, i))
+        traj = io.read(filename, index=f'::{skip}')
         traj_l.append(traj)
 
     # Prepare file names
     time_filename = f"{save_dir}/Time_{temperature}K_{defect:.3f}.json"
-    sro_filename = f"{save_dir}/SRO_{temperature}K_{defect:.3f}.json"
 
-    # Output filenames
-    print(f"Time: {time_filename},  SRO: {sro_filename}")
     # Run time estimation
-    estimate_time(model_name, model, temperature, defect, traj_l, time_filename, sro_filename, device)
+    print(f"Estimating time | T: {temperature} K, V: {defect*100:.2f} %, save to {time_filename}.")
+    estimate_time(model, temperature, defect, traj_l, time_filename, batch_size, device)
