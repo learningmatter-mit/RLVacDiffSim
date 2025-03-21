@@ -10,9 +10,9 @@ import json
 import os
 from itertools import islice
 
+import numpy as np
 import toml
 import torch
-import numpy as np
 from rgnn.common.registry import registry
 from rgnn.graph.utils import batch_to
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -22,7 +22,7 @@ from torch.optim.lr_scheduler import (CosineAnnealingLR,
                                       ReduceLROnPlateau, StepLR)
 from torch_geometric.loader import DataLoader
 
-from rlsim.time.misc import (combined_loss, combined_loss_binary, CustomSampler)
+from rlsim.time.misc import CustomSampler, combined_loss, combined_loss_binary
 
 BEST_LOSS = 1e18
 
@@ -35,14 +35,20 @@ class TimeTrainer:
 
         self.train_config = self.config["train"]
         # Convert to list of dictionaries
-        dqn_model_path = self.config["train"].pop("dqn_model_path")
+        previous_model_path = self.train_config.get("previous_model_path", None)
         t_model_config = self.config["model"]
-        dqn_model = registry.get_model_class("dqn_v2").load(f"{dqn_model_path}")
-        reaction_model = dqn_model.reaction_model
-        self.t_model_name = t_model_config.pop("@name")
-        self.t_model = registry.get_model_class(self.t_model_name).load_representation(reaction_model, **t_model_config)
+        if previous_model_path is not None:
+            self.t_model_name = t_model_config.pop("@name")
+            self.t_model = registry.get_model_class(self.t_model_name).load(previous_model_path)
+            self.t_model_offline = registry.get_model_class(self.t_model_name).load(previous_model_path)
+        else:
+            dqn_model_path = self.config["train"].pop("dqn_model_path")
+            dqn_model = registry.get_model_class("dqn_v2").load(dqn_model_path)
+            reaction_model = dqn_model.reaction_model
+            self.t_model_name = t_model_config.pop("@name")
+            self.t_model = registry.get_model_class(self.t_model_name).load_representation(reaction_model, **t_model_config)
+            self.t_model_offline = registry.get_model_class(self.t_model_name).load_representation(reaction_model, **t_model_config)
         self.logger.info(f"Training timescape estimator with {self.t_model_name}")
-        self.t_model_offline = registry.get_model_class(self.t_model_name).load_representation(reaction_model, **t_model_config)
         self.optimizer = Adam(self.t_model.parameters(), lr=self.train_config["lr"])
         self.scheduler = ReduceLROnPlateau(optimizer=self.optimizer, mode="min", factor=0.5, threshold=1e-2, threshold_mode="abs", patience=5)
         # Dataset
@@ -142,10 +148,10 @@ class TimeTrainer:
             torch.cuda.empty_cache()
             self.logger.info(f"Epoch: {epoch} / {self.train_config['epoch']}, Loss: {float(record/Nstep):.4f}")
             val_loss = self.validate(epoch)
-            is_best = val_loss <= best_loss
-            best_loss = min(val_loss, best_loss)
+            is_best = True if epoch == len(self.train_config['epoch']) - 1 else False
+            # best_loss = min(val_loss, best_loss)
             self.scheduler.step(val_loss)
-            self.save_model(is_best=is_best)
+            self.save_model(epoch, is_best=is_best)
 
             if epoch % self.train_config["offline_update"] == 0:
                 self.t_model_offline.load_state_dict(self.t_model.state_dict())
@@ -202,8 +208,9 @@ class TimeTrainer:
         self.t_model.train()
         return record/Nstep
 
-    def save_model(self, is_best):
+    def save_model(self, epoch, is_best):
         """Save the model to the specified path"""
-        self.t_model.save(f"{self.task}/checkpoint.pth.tar")
+        if epoch % 10 == 0:
+            self.t_model.save(f"{self.task}/checkpoint{epoch}.pth.tar")
         if is_best:
             self.t_model.save(f"{self.task}/{self.train_config['save_model_name']}")
