@@ -1,0 +1,22 @@
+task = "test_run_mcmc"
+[logger]
+filename = "deploy"
+name = "Deploy"
+
+[deploy]
+horizon = 10 
+mode = "mcmc" 
+n_episodes = 2 
+n_poscars = 100 
+poscar_dir = "/path/to/poscars" # Change this to the directory where your POSCAR files are stored.
+
+[deploy.simulation_params]
+temperature = 500
+
+[deploy.calc_info]
+cutoff = 4.0
+device = "cuda"
+max_iter = 10
+platform = "mace"
+relax_accuracy = 0.01
+relax_log = "relax.log"

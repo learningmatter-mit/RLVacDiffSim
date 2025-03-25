@@ -1,3 +1,4 @@
+import random
 from contextlib import redirect_stdout
 from io import StringIO
 from typing import Dict, List
@@ -18,6 +19,8 @@ from torch_geometric.loader import DataLoader
 from rlsim.actions.action import get_action_space
 from rlsim.environment import Environment
 
+ENERGY_DIFF_LIMIT = 3.  # in eV /A^2
+
 
 class RLSimulator:
     def __init__(self,
@@ -30,10 +33,11 @@ class RLSimulator:
                                                     "temperature": 900,
                                                     }):
         self.env = environment
-        self.model = model
         self.calculator = self.env.get_calculator(**self.env.calc_params)
-        model_params.update({"temperature": params.get("temperature", None)})
-        self.q_params = model_params
+        if model is not None:
+            self.model = model
+            model_params.update({"temperature": params.get("temperature", None)})
+            self.q_params = model_params
         self.device = self.env.calc_params["device"]
 
     def select_action(self, action_space, temperature):
@@ -105,6 +109,8 @@ class RLSimulator:
 
         if mode == "lss":
             outputs = self.run_LSS(horizon, atoms_traj, logger, **simulation_params)
+        elif mode == "mcmc":
+            outputs = self.run_MCMC(horizon, atoms_traj, logger, **simulation_params)
         elif mode == "tks":
             assert not self.q_params["dqn"], "TKS is only available for dqn==False."
             outputs = self.run_TKS(horizon, atoms_traj, logger, **simulation_params)
@@ -117,7 +123,7 @@ class RLSimulator:
                                            annealing_time=simulation_params["annealing_time"],
                                            T_start=simulation_params["T_start"],
                                            T_end=simulation_params["T_end"])
-        Elist = [self.env.atoms.get_positions()[-1].tolist()]
+        Elist = [self.env.potential()]
         for tstep in range(horizon):
             if simulation_params.get("annealing_time", None) is not None:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
@@ -134,7 +140,7 @@ class RLSimulator:
                 logger.info(
                     f"Step: {tstep}, T: {new_T:.2f}, E: {energy:.3f}"
                 )
-        return (Elist)
+        return (Elist,)
 
     def run_TKS(self, horizon, atoms_traj, logger, **simulation_params):
         tlist = [0]
@@ -156,6 +162,63 @@ class RLSimulator:
                     f"Step: {tstep}, T: {temperature:.2f}, E: {self.env.potential():.3f}"
                 )
         return (tlist, clist)
+    
+    def run_MCMC(self, horizon, atoms_traj, logger, **simulation_params):
+        if simulation_params.get("annealing_time", None) is not None:
+            T_scheduler = ThermalAnnealing(total_horizon=horizon,
+                                           annealing_time=simulation_params["annealing_time"],
+                                           T_start=simulation_params["T_start"],
+                                           T_end=simulation_params["T_end"])
+        Elist = [self.env.potential()]
+        self.total_mcmc_step = 0
+        for tstep in range(horizon):
+            if simulation_params.get("annealing_time", None) is not None:
+                new_T = T_scheduler.get_temperature(tstep=tstep)
+            else:
+                new_T = simulation_params["temperature"]
+            n_sweeps = simulation_params.get("n_sweeps", 36)
+            energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T)
+            io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
+
+            Elist.append(energy)
+            logger.info(
+                f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {energy:.3f} eV"
+            )
+        return (Elist,)
+
+    def mcmc_sweep(self, n_sweeps, temperature):
+        accept = False
+        count = 0
+        while not accept and count < n_sweeps:
+            energy, accept = self.mcmc_step(temperature)
+            count += 1
+            self.total_mcmc_step += 1
+        return energy, accept, count
+    
+    def mcmc_step(self, temperature):
+        accept = False
+        base_prob = 0.0
+        kT = temperature * 8.617 * 10**-5
+        action_space = get_action_space(self.env)
+        action = random.choice(action_space)
+        E_prev = self.env.potential()
+        E_next, fail = self.env.step(action)
+
+        if not fail:
+            energy_diff = (E_next - E_prev) # / self.env.n_atom
+            if energy_diff < 0.0:
+                base_prob = 1.0  # Automatically accept for sufficiently negative energy diff
+            elif np.abs(energy_diff) <= ENERGY_DIFF_LIMIT:
+                try:
+                    base_prob = np.exp(-energy_diff / (kT+1e-8))
+                except OverflowError:
+                    pass
+        if np.random.rand() < base_prob:
+            accept = True
+        else:
+            self.env.revert()
+        energy = self.env.potential()
+        return energy, accept
 
 
 class ThermalAnnealing:

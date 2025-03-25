@@ -13,9 +13,13 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     logger.info(f"Deploy DRL in: {os.path.realpath(task)}")
     toml.dump(config, open(f"{task}/config_copied.toml", "w"))
     deploy_config = config["deploy"]
-    model_config = config["model"]
-
-    model = registry.get_model_class(model_config["@name"]).load(f"{model_config['model_path']}")
+    model_config = config.get("model", None)
+    if model_config is not None:
+        model = registry.get_model_class(model_config["@name"]).load(f"{model_config['model_path']}")
+        model_params = model_config["params"]
+    else:
+        model = None
+        model_params = None
 
     calc_params = deploy_config.pop("calc_info")
     calc_params.update({"relax_log": f"{task}/{calc_params['relax_log']}"})
@@ -30,7 +34,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         n_poscars = deploy_config.pop("n_poscars")
         pool = [f"{poscar_dir}/POSCAR_" + str(i) for i in range(0, n_poscars)]
 
-    if simulation_mode == "lss":
+    if simulation_mode == "lss" or simulation_mode == "mcmc":
         El = []
         output_file = str(task) + "/converge.json"
     elif simulation_mode == "tks":
@@ -39,12 +43,15 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         output_file = str(task) + "/diffuse.json"
     for u in range(n_episodes):
         logger.info(f"Episode: {u}")
-        file = pool[np.random.randint(len(pool))]
+        if simulation_params.get("all_episodes", False):
+            file = pool[np.random.randint(len(pool))]
+        else:
+            file = pool[u]
         env = Environment(file, calc_params=calc_params)
         env.relax()
         simulator = RLSimulator(environment=env,
                                 model=model,
-                                model_params=model_config["params"],
+                                model_params=model_params,
                                 params=deploy_config)
         atoms_traj = str(task) + "/XDATCAR" + str(u)
         outputs = simulator.run(horizon=horizon,
@@ -52,12 +59,12 @@ def deploy_RL(task, logger, config, atoms_traj=None):
                                 atoms_traj=atoms_traj,
                                 mode=simulation_mode,
                                 **simulation_params)
-        if simulation_mode == "lss":
+        if simulation_mode == "lss" or simulation_mode == "mcmc":
             El.append(outputs[0])
         elif simulation_mode == "tks":
             Tl.append(outputs[0])
             Cl.append(outputs[1])
-    if simulation_mode == "lss":
+    if simulation_mode == "lss" or simulation_mode == "mcmc":
         with open(output_file, "w") as file:
             json.dump(El, file)
     elif simulation_mode == "tks":
