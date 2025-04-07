@@ -16,10 +16,10 @@ from rgnn.graph.reaction import ReactionGraph
 from rgnn.graph.utils import batch_to
 from torch_geometric.loader import DataLoader
 
-from rlsim.actions.action import get_action_space
+from rlsim.actions.action import get_action_space, get_action_space_mcmc
 from rlsim.environment import Environment
 
-ENERGY_DIFF_LIMIT = 3.  # in eV /A^2
+ENERGY_DIFF_LIMIT = 1.5  # in eV
 
 
 class RLSimulator:
@@ -176,7 +176,7 @@ class RLSimulator:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
             else:
                 new_T = simulation_params["temperature"]
-            n_sweeps = simulation_params.get("n_sweeps", 36)
+            n_sweeps = simulation_params.get("n_sweeps", 1)
             energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
 
@@ -199,7 +199,7 @@ class RLSimulator:
         accept = False
         base_prob = 0.0
         kT = temperature * 8.617 * 10**-5
-        action_space = get_action_space(self.env)
+        action_space = get_action_space_mcmc(self.env)
         action = random.choice(action_space)
         E_prev = self.env.potential()
         E_next, fail = self.env.step(action)
@@ -210,7 +210,7 @@ class RLSimulator:
                 base_prob = 1.0  # Automatically accept for sufficiently negative energy diff
             elif np.abs(energy_diff) <= ENERGY_DIFF_LIMIT:
                 try:
-                    base_prob = np.exp(-energy_diff / (kT+1e-8))
+                    base_prob = np.exp(-energy_diff / kT)
                 except OverflowError:
                     pass
         if np.random.rand() < base_prob:

@@ -51,8 +51,9 @@ class Environment:
         else:
             self.atoms.calc = self.get_calculator(**self.calc_params)
         self.device = self.calc_params["device"]
-
-    def get_calculator(self,
+    
+    @classmethod
+    def get_calculator(cls,
                        platform: str = 'mace',
                        device: str = "cuda",
                        potential_id: str = '2018--Choi-W-M-Jo-Y-H-Sohn-S-S-et-al--Co-Ni-Cr-Fe-Mn',
@@ -211,14 +212,23 @@ class Environment:
         self.action = action
         self.pos_last = self.positions(f="cartesion")
         self.initial = self.atoms.copy()
-
         self.act_atom = self.action[0]
-        self.act_displace = np.array(
-            [[0, 0, 0]] * self.act_atom
-            + [self.action[1:]]
-            + [[0, 0, 0]] * (self.n_atom - 1 - self.act_atom)
-        )
-        self.pos = (self.positions(f="cartesion") + self.act_displace).tolist()
+        if len(self.action) == 2:  # Swap sites
+            new_pos = self.positions(f="cartesion")
+            act_pos = self.positions(f="cartesion")[self.action[0]]
+            swap_pos = self.positions(f="cartesion")[self.action[1]]
+            print(new_pos[self.action[0]], new_pos[self.action[1]], act_pos, swap_pos)
+            new_pos[self.action[0]] = swap_pos
+            new_pos[self.action[1]] = act_pos
+            print(new_pos[self.action[0]], new_pos[self.action[1]], act_pos, swap_pos)
+            self.pos = new_pos.tolist()
+        else:  # Displace atom
+            self.act_displace = np.array(
+                [[0, 0, 0]] * self.act_atom
+                + [self.action[1:]]
+                + [[0, 0, 0]] * (self.n_atom - 1 - self.act_atom)
+            )
+            self.pos = (self.positions(f="cartesion") + self.act_displace).tolist()
         self.set_atoms(self.pos, convention="cartesion")
 
         converge = self.relax()
