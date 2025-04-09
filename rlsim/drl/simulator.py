@@ -177,7 +177,7 @@ class RLSimulator:
             else:
                 new_T = simulation_params["temperature"]
             n_sweeps = simulation_params.get("n_sweeps", 1)
-            energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T)
+            energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T, vacancy_only=simulation_params.get("vacancy_only", False))
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
 
             Elist.append(energy)
@@ -186,20 +186,20 @@ class RLSimulator:
             )
         return (Elist,)
 
-    def mcmc_sweep(self, n_sweeps, temperature):
+    def mcmc_sweep(self, n_sweeps, temperature, vacancy_only=False):
         accept = False
         count = 0
         while not accept and count < n_sweeps:
-            energy, accept = self.mcmc_step(temperature)
+            energy, accept = self.mcmc_step(temperature, vacancy_only=vacancy_only)
             count += 1
             self.total_mcmc_step += 1
         return energy, accept, count
     
-    def mcmc_step(self, temperature):
+    def mcmc_step(self, temperature, vacancy_only):
         accept = False
         base_prob = 0.0
         kT = temperature * 8.617 * 10**-5
-        action_space = get_action_space_mcmc(self.env)
+        action_space = get_action_space_mcmc(self.env, vacancy_only=vacancy_only)
         action = random.choice(action_space)
         E_prev = self.env.potential()
         E_next, fail = self.env.step(action)

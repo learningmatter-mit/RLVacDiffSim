@@ -45,7 +45,7 @@ def get_action_space(config, lattice_parameter: float = 3.528):
     return actions
 
 
-def get_action_space_mcmc(config, lattice_parameter: float = 3.528):
+def get_action_space_mcmc(config, lattice_parameter: float = 3.528, vacancy_only=False):
     a = lattice_parameter
     actions = []
 
@@ -92,10 +92,12 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528):
             vacant = test(i, vec)
             if vacant:
                 actions.append([i]+vec.tolist())
-    for i in filled_l:
-        for vec in acts:
-            swap_sites = test_filled(i, vec)
-            for site in swap_sites:
-                actions.append([i]+[site])
-
-    return actions
+    if vacancy_only:
+        return actions
+    else:
+        for i in filled_l:
+            for vec in acts:
+                swap_sites = test_filled(i, vec)
+                for site in swap_sites:
+                    actions.append([i]+[site])
+        return actions
