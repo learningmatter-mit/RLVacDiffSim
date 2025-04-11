@@ -19,6 +19,8 @@ def train_DQN(task, logger, config):
     toml.dump(config, open(f"{task}/config_copied.toml", "w"))
     model_config = config["model"]
     train_config = config["train"]
+    device = train_config.pop("device")
+    train_config["update_params"].update({"device": device})
 
     if "traj" not in os.listdir(task):
         os.mkdir(task + "/traj")
@@ -29,6 +31,7 @@ def train_DQN(task, logger, config):
         file.write("epoch\t loss\n")
 
     calc_params = train_config.pop("calc_info")
+    calc_params.update({"device": device})
     calc_params.update({"relax_log": f"{task}/{calc_params['relax_log']}"})
     n_episodes = train_config.pop("n_episodes")
     horizon = train_config.pop("horizon")
@@ -49,8 +52,8 @@ def train_DQN(task, logger, config):
     else:
         offline_model = None
     q_params = model_config["params"]
-    temperature = random.choice(train_config["temperature"])
-    q_params.update({"temperature": temperature})
+    q_params.update({"temperature":  random.choice(train_config["temperature"])}) # Initialize with random temperature
+
     trainer = Trainer(
         model,
         q_params=q_params,
@@ -61,19 +64,19 @@ def train_DQN(task, logger, config):
 
     replay_list = []
     for epoch in range(n_episodes):
-        logger.info(f"Episode : {epoch}")
         atoms = pool[np.random.randint(len(pool))]
+        temperature = random.choice(train_config["temperature"])
+        logger.info(f"Episode : {epoch}, T : {temperature}, alpha : {q_params['alpha']}, beta : {q_params['beta']}, gamma : {train_config['update_params']['gamma']}")
         env = Environment(atoms, calc_params=calc_params)
         env.relax()
         simulator = RLSimulator(environment=env,
                                 model=model,
-                                model_params=model_config["params"],
-                                params=train_config)
+                                q_params=model_config["params"])
         replay_list.append(
-            Memory(q_params["alpha"], q_params["beta"], T=q_params["temperature"])
+            Memory(q_params["alpha"], q_params["beta"], T=temperature)
         )
         for tstep in range(horizon):
-            info = simulator.step(q_params["temperature"])
+            info = simulator.step(temperature)
             replay_list[-1].add(info)
             logger.info(f"  tstep : {tstep}")
         train_config["update_params"].update({"episode_size": int(1 + epoch ** (2 / 3))})

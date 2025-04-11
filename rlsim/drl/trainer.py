@@ -42,7 +42,7 @@ class Trainer:
         )
         self.optimizer = optim.Adam(trainable_params, lr=lr)
         self.q_params = q_params
-        self.kT = q_params["temperature"] * 8.617 * 10**-5
+        # self.kT = q_params["temperature"] * 8.617 * 10**-5
 
     def update(self, memory_l, mode="context_bandit", **kwargs):
         if mode == "context_bandit":

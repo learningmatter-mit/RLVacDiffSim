@@ -17,9 +17,9 @@ class Memory:
     # Alternatively apply add_minimum and add_saddle, passing 'configuration' objects to the methods
     # Trajectories can be output as lammps output files, which can be visualized by OVITO or AtomEye
 
-    def __init__(self, k_s, k_min, T=0.0):
-        self.k_s = k_s
-        self.k_min = k_min
+    def __init__(self, alpha, beta, T=0.0):
+        self.alpha = alpha
+        self.beta = beta
         self.states = []
         self.next_states = []
         self.actions = []
@@ -55,9 +55,9 @@ class Memory:
         if not info["fail"]:
             self.barrier.append(info["E_s"]-info["E_min"])
             self.rewards.append(
-                self.k_s
+                self.alpha
                 * (-self.barrier[-1] + self.kb * self.T * self.freq[-1])
-                + self.k_min * (self.E_min[-1] - self.E_next[-1])
+                + self.beta * (self.E_min[-1] - self.E_next[-1])
             )
         else:
             self.barrier.append(0.0)
@@ -87,8 +87,8 @@ class Memory:
     def save(self, filename):
         keys = ["numbers", "positions", "cell", "pbc"]
         to_list = [
-            self.k_s,
-            self.k_min,
+            self.alpha,
+            self.beta,
             [{key: u.todict()[key].tolist() for key in keys} for u in self.states],
             self.E_min,
             [{key: u.todict()[key].tolist() for key in keys} for u in self.next_states],
@@ -111,8 +111,8 @@ class Memory:
         with open(filename + ".json", "r") as file:
             data = json.load(file)
         [
-            self.k_s,
-            self.k_min,
+            self.alpha,
+            self.beta,
             states,
             self.E_min,
             next_states,

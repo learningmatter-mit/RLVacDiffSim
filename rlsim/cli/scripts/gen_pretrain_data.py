@@ -47,9 +47,7 @@ def gen_pretrain_data(settings):
         logger.info("epoch = " + str(epoch) + ":  " + file)
         env = Environment(file, calc_params=calc_params)
         env.relax()
-        simulator = RLSimulator(environment=env,
-                                model_params={"alpha": 1.0},
-                                params=simulation_config)
+        simulator = RLSimulator(environment=env)
         replay_list.append(
             Memory(1.0, 0.0) # 1.0 and 0.0 is random
         )

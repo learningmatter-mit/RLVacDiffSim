@@ -26,19 +26,14 @@ class RLSimulator:
     def __init__(self,
                  environment: Environment,
                  model=None,
-                 model_params: Dict[str, float | bool] | None = {"alpha": 0.0,
-                                                          "beta": 1.0,
-                                                          "dqn": True},
-                 params: Dict[str, float | bool] = {"cutoff": 4.0,
-                                                    "temperature": 900,
-                                                    }):
+                 q_params: Dict[str, float | bool] | None = {"alpha": 0.0, "beta": 0.5, "dqn": True}):
         self.env = environment
         self.calculator = self.env.get_calculator(**self.env.calc_params)
         if model is not None:
             self.model = model
-            model_params.update({"temperature": params.get("temperature", None)})
-            self.q_params = model_params
+            self.q_params = q_params
         self.device = self.env.calc_params["device"]
+        self.kb = 8.617*10**-5
 
     def select_action(self, action_space, temperature):
         self.update_q_params(**{"temperature": temperature})
@@ -54,7 +49,7 @@ class RLSimulator:
                 rl_q = self.model(batch, q_params=self.q_params)["rl_q"]
                 total_q_list.append(rl_q.detach())
         Q = torch.concat(total_q_list, dim=-1)
-        action_probs = nn.Softmax(dim=0)(Q/(temperature*8.617*10**-5))
+        action_probs = nn.Softmax(dim=0)(Q/(temperature*self.kb))
         action = np.random.choice(
             len(action_probs.detach().cpu().numpy()),
             p=action_probs.detach().cpu().numpy(),
