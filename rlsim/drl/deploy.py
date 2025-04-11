@@ -23,7 +23,6 @@ def deploy_RL(task, logger, config, atoms_traj=None):
 
     calc_params = deploy_config.pop("calc_info")
     calc_params.update({"relax_log": f"{task}/{calc_params['relax_log']}"})
-    n_episodes = deploy_config.pop("n_episodes")
     horizon = deploy_config.pop("horizon")
     simulation_mode = deploy_config.pop("mode")
     simulation_params = deploy_config.pop("simulation_params")
@@ -33,6 +32,10 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         poscar_dir = deploy_config.pop("poscar_dir")
         n_poscars = deploy_config.pop("n_poscars")
         pool = [f"{poscar_dir}/POSCAR_" + str(i) for i in range(0, n_poscars)]
+    if simulation_params.get("all_episodes", True):
+        n_episodes = len(pool)
+    else:
+        n_episodes = deploy_config.pop("n_episodes")
 
     if simulation_mode == "lss" or simulation_mode == "mcmc":
         El = []
