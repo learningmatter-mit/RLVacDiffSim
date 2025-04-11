@@ -1,4 +1,5 @@
 import os
+import random
 import warnings
 
 import numpy as np
@@ -9,7 +10,6 @@ from rlsim.drl.simulator import RLSimulator
 from rlsim.drl.trainer import Trainer
 from rlsim.environment import Environment
 from rlsim.memory import Memory
-from rlsim.utils.logger import setup_logger
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -49,7 +49,8 @@ def train_DQN(task, logger, config):
     else:
         offline_model = None
     q_params = model_config["params"]
-    q_params.update({"temperature": train_config["temperature"]})
+    temperature = random.choice(train_config["temperature"])
+    q_params.update({"temperature": temperature})
     trainer = Trainer(
         model,
         q_params=q_params,
