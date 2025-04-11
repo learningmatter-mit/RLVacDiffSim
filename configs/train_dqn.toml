@@ -16,6 +16,7 @@ dqn = true
 model_path = "/path/to/reaction_model" # Change this to the model path e.g., "/home/hojechun/ssd_mnt/1-RLVacDiff/1-Models/best_model_mace_Vrandom_sum_0716.pth.tar"
 
 [train]
+device = "cuda"
 horizon = 50
 lr = 1e-5
 mode = "dqn"
@@ -26,7 +27,6 @@ temperature = [300, 500, 700, 900]
 train_all = true
 [train.update_params]
 batch_size = 8
-device = "cuda"
 gamma = 0.9
 num_epoch = 5
 
@@ -35,5 +35,5 @@ cutoff = 4.0
 device = "cuda"
 max_iter = 100
 platform = "mace"
-relax_accuracy = 0.01
+relax_accuracy = 0.05
 relax_log = "relax.log"
