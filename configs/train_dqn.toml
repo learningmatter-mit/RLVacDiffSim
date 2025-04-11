@@ -9,20 +9,20 @@ n_emb = 16
 n_feat = 32
 [model.params]
 alpha = 0.0
-beta = 1.0
+beta = 0.5
 dqn = true
 [model.reaction_model]
-"@name" = "painn"
-model_path = "/home/hojechun/ssd_mnt/1-RLVacDiff/1-Models/best_model_mace_Vrandom_sum_0716.pth.tar"
+"@name" = "painn" 
+model_path = "/path/to/reaction_model" # Change this to the model path e.g., "/home/hojechun/ssd_mnt/1-RLVacDiff/1-Models/best_model_mace_Vrandom_sum_0716.pth.tar"
 
 [train]
-horizon = 5
+horizon = 50
 lr = 1e-5
 mode = "dqn"
-n_episodes = 5
+n_episodes = 100
 n_poscars = [100]
 poscar_dir = ["/path/to/poscars"] # Change this to the directory where your POSCAR files are stored.
-temperature = 900
+temperature = [300, 500, 700, 900]
 train_all = true
 [train.update_params]
 batch_size = 8
