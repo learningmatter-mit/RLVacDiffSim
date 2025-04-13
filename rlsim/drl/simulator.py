@@ -179,6 +179,8 @@ class RLSimulator:
             logger.info(
                 f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {energy:.3f} eV"
             )
+        last_atoms = atoms_traj.replace("XDATCAR", "last_atoms")
+        io.write(last_atoms, self.env.atoms, format="vasp-poscar")
         return (Elist,)
 
     def mcmc_sweep(self, n_sweeps, temperature, vacancy_only=False):

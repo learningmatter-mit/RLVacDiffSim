@@ -111,7 +111,7 @@ class Trainer:
                 batch = batch_to(batch, device)
                 q = model(batch, q_params=self.q_params)["rl_q"]
                 q_values_list.append(q.detach())
-        del dataset
+        del dataset, dataloader
         next_q = torch.cat(q_values_list, dim=0)
         max_q = torch.max(next_q)
         return max_q
@@ -171,9 +171,11 @@ class Trainer:
                 )
                 self.optimizer.step()
                 losses.update(loss.detach().item())
+                del batch, q_pred, loss
         if device == "cuda":
             torch.cuda.empty_cache()
-
+        del dataset, q_dataloader
+        
         return losses.avg
 
 

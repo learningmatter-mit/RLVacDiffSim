@@ -44,6 +44,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         Tl = []
         Cl = []
         output_file = str(task) + "/diffuse.json"
+    logger.info(f"Running {n_episodes} Episodes in {simulation_mode} mode")
     for u in range(n_episodes):
         logger.info(f"Episode: {u}")
         if simulation_params.get("all_episodes", False):
@@ -63,14 +64,10 @@ def deploy_RL(task, logger, config, atoms_traj=None):
                                 **simulation_params)
         if simulation_mode == "lss" or simulation_mode == "mcmc":
             El.append(outputs[0])
+            with open(output_file, "w") as file:
+                json.dump(El, file)
         elif simulation_mode == "tks":
             Tl.append(outputs[0])
             Cl.append(outputs[1])
-    if simulation_mode == "lss" or simulation_mode == "mcmc":
-        with open(output_file, "w") as file:
-            json.dump(El, file)
-    elif simulation_mode == "tks":
-        with open(output_file, "w") as file:
-            json.dump([Tl, Cl], file)
-
-
+            with open(output_file, "w") as file:
+                json.dump([Tl, Cl], file)
