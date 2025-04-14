@@ -5,11 +5,10 @@ Created on Sun Apr  7 11:47:40 2024
 
 @author: ubuntu
 """
-import click
-import argparse
 import json
 import os
 
+import click
 import numpy as np
 from ase import io
 from ase.data import chemical_symbols
@@ -67,31 +66,34 @@ def main(temperature, species, traj_list, goal_state_file, save_dir):
 
         Ntraj = len(time)
         for j in range(Ntraj):
-            atomsj = io.read(os.path.join(name, f'XDATCAR{j}'),index=':')
+            atomsj = io.read(os.path.join(name, f'XDATCAR{j}'), index=':')
             for frame in range(len(atomsj)-1):
                 dt = time[j][frame+1] - time[j][frame]
                 state = atoms_to_dict(atomsj[frame])
                 next_state = atoms_to_dict(atomsj[frame+1])
                 SRO = np.triu(get_sro_from_atoms(atomsj[frame]))
                 SRO_next = np.triu(get_sro_from_atoms(atomsj[frame+1]))
-                terminate = (np.linalg.norm(SRO-WC0) < cutoff)
-                terminate_next = (np.linalg.norm(SRO_next-WC0) < cutoff)
-                if terminate:
-                    numerator += 1
-                if not terminate and terminate_next:
-                    next_frame_numerator += 1
-                denominator += 1
-                dataset.append({'state': state,
-                                'next': next_state,
-                                'dt': dt,
-                                'SRO': SRO.tolist(),
-                                'terminate': int(terminate),
-                                'terminate_next': int(terminate_next)})
-            if j%10 == 0:
+                if np.linalg.norm(SRO) > np.linalg.norm(WC0) and np.linalg.norm(SRO_next) > np.linalg.norm(WC0):
+                    terminate = (np.linalg.norm(SRO-WC0) < cutoff)
+                    terminate_next = (np.linalg.norm(SRO_next-WC0) < cutoff)
+                    if terminate:
+                        numerator += 1
+                    if not terminate and terminate_next:
+                        next_frame_numerator += 1
+                    denominator += 1
+                    dataset.append({'state': state,
+                                    'next': next_state,
+                                    'dt': dt,
+                                    'SRO': SRO.tolist(),
+                                    'terminate': int(terminate),
+                                    'terminate_next': int(terminate_next)})
+                else:
+                    pass
+            if j % 10 == 0:
                 print(f"{j} | {numerator/denominator*100:.3f} % | {next_frame_numerator / denominator*100:.3f} %")
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
     filename = os.path.join(save_dir, f'dataset_{int(temperature)}.json')
-    with open(filename,'w') as file:
+    with open(filename, 'w') as file:
         json.dump(dataset, file)
 
