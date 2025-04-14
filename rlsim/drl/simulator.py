@@ -133,7 +133,7 @@ class RLSimulator:
             Elist.append(energy)
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
-                    f"Step: {tstep}, T: {new_T:.2f}, E: {energy:.3f}"
+                    f"Step: {tstep}, T: {new_T:.0f}, E: {energy:.3f}"
                 )
         return (Elist,)
 
@@ -154,7 +154,7 @@ class RLSimulator:
             clist.append(self.env.atoms.get_positions()[-1].tolist())
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
-                    f"Step: {tstep}, T: {temperature:.2f}, E: {self.env.potential():.3f}"
+                    f"Step: {tstep}, T: {temperature:.0f}, E: {self.env.potential():.3f}"
                 )
         return (tlist, clist)
     
