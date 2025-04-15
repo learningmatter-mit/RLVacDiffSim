@@ -46,11 +46,11 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         output_file = str(task) + "/diffuse.json"
     logger.info(f"Running {n_episodes} Episodes in {simulation_mode} mode")
     for u in range(n_episodes):
-        logger.info(f"Episode: {u}")
         if simulation_params.get("all_episodes", False):
             file = pool[np.random.randint(len(pool))]
         else:
             file = pool[u]
+        logger.info(f"Episode: {u}, File: {file}")
         env = Environment(file, calc_params=calc_params)
         env.relax()
         simulator = RLSimulator(environment=env,
