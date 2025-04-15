@@ -32,7 +32,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         poscar_dir = deploy_config.pop("poscar_dir")
         n_poscars = deploy_config.pop("n_poscars")
         pool = [f"{poscar_dir}/POSCAR_" + str(i) for i in range(0, n_poscars)]
-    if simulation_params.get("all_episodes", True):
+    if simulation_params.get("all_episodes", False):
         n_episodes = len(pool)
     else:
         n_episodes = deploy_config.pop("n_episodes")
