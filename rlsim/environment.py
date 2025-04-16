@@ -217,10 +217,10 @@ class Environment:
             new_pos = self.positions(f="cartesion")
             act_pos = self.positions(f="cartesion")[self.action[0]]
             swap_pos = self.positions(f="cartesion")[self.action[1]]
-            print(new_pos[self.action[0]], new_pos[self.action[1]], act_pos, swap_pos)
+
             new_pos[self.action[0]] = swap_pos
             new_pos[self.action[1]] = act_pos
-            print(new_pos[self.action[0]], new_pos[self.action[1]], act_pos, swap_pos)
+
             self.pos = new_pos.tolist()
         else:  # Displace atom
             self.act_displace = np.array(
