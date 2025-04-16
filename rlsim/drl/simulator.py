@@ -176,9 +176,10 @@ class RLSimulator:
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
 
             Elist.append(energy)
-            logger.info(
-                f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {energy:.3f} eV"
-            )
+            if tstep % 10 == 0 or tstep == horizon - 1:
+                logger.info(
+                    f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {energy:.3f} eV"
+                )
         last_atoms = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms, self.env.atoms, format="vasp")
         return (Elist,)
