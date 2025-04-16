@@ -33,9 +33,11 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         n_poscars = deploy_config.pop("n_poscars")
         pool = [f"{poscar_dir}/POSCAR_" + str(i) for i in range(0, n_poscars)]
     if simulation_params.get("all_episodes", False):
-        n_episodes = deploy_config.pop("n_episodes")
-    else:
         n_episodes = len(pool)
+        logger.info(f"Running {n_episodes} (Serial) episodes in {simulation_mode} mode")
+    else:
+        n_episodes = deploy_config.pop("n_episodes")
+        logger.info(f"Running {n_episodes} (Random) episodes in {simulation_mode} mode")
 
     if simulation_mode == "lss" or simulation_mode == "mcmc":
         El = []
@@ -44,13 +46,13 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         Tl = []
         Cl = []
         output_file = str(task) + "/diffuse.json"
-    logger.info(f"Running {n_episodes} Episodes in {simulation_mode} mode")
     for u in range(n_episodes):
         if simulation_params.get("all_episodes", False):
-            file = pool[np.random.randint(len(pool))]
-        else:
+            logger.info(f"Episode: {u} (Serial)")
             file = pool[u]
-        logger.info(f"Episode: {u}, File: {file}")
+        else:
+            logger.info(f"Episode: {u} (Random)")
+            file = pool[np.random.randint(len(pool))]
         env = Environment(file, calc_params=calc_params)
         env.relax()
         simulator = RLSimulator(environment=env,
