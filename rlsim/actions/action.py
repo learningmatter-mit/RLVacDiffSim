@@ -106,9 +106,10 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528, vacancy_only
                 actions.append([index]+vec.tolist())
         return actions
     else:
-        index = np.random.choice(list(range(len(config.atoms))))
-        for vec in acts:
-            swap_sites = test_filled(index, vec)
-            for site in swap_sites:
-                actions.append([index]+[site])
+        while not actions:
+            index = np.random.choice(len(config.atoms))  # random pick of site
+            for vec in acts:
+                swap_sites = test_filled(index, vec)
+                for site in swap_sites:
+                    actions.append([index, site])
         return actions
