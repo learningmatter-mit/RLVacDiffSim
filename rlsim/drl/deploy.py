@@ -32,7 +32,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         poscar_dir = deploy_config.pop("poscar_dir")
         n_poscars = deploy_config.pop("n_poscars")
         pool = [f"{poscar_dir}/POSCAR_" + str(i) for i in range(0, n_poscars)]
-    if simulation_params.get("all_episodes", False):
+    if deploy_config.get("all_episodes", False):
         n_episodes = len(pool)
         logger.info(f"Running {n_episodes} (Serial) episodes in {simulation_mode} mode")
     else:
@@ -47,7 +47,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         Cl = []
         output_file = str(task) + "/diffuse.json"
     for u in range(n_episodes):
-        if simulation_params.get("all_episodes", False):
+        if deploy_config.get("all_episodes", False):
             logger.info(f"Episode: {u} (Serial)")
             file = pool[u]
         else:
