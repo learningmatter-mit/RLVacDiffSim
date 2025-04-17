@@ -142,6 +142,7 @@ class RLSimulator:
         clist = [self.env.atoms.get_positions()[-1].tolist()]
         temperature = simulation_params["temperature"]
         kT = temperature * 8.617 * 10**-5
+        Elist = [self.env.potential()]
         for tstep in range(horizon):
             action_space = get_action_space(self.env)
             act_id, _, Q = self.select_action(action_space, temperature)
@@ -149,14 +150,16 @@ class RLSimulator:
             _, _ = self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
             Gamma = float(torch.sum(torch.exp(Q/kT)));
-            dt = 1 / Gamma * 10**-6 # 1/(microsecond)
+            dt = 1 / Gamma * 10**-6  # 1/(microsecond)
+            energy = self.env.potential()
+            Elist.append(energy)
             tlist.append(tlist[-1] + dt)
             clist.append(self.env.atoms.get_positions()[-1].tolist())
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {temperature:.0f}, E: {self.env.potential():.3f}"
                 )
-        return (tlist, clist)
+        return (Elist, tlist, clist)
     
     def run_MCMC(self, horizon, atoms_traj, logger, **simulation_params):
         if simulation_params.get("annealing_time", None) is not None:

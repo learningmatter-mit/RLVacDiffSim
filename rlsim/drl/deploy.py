@@ -39,10 +39,10 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         n_episodes = deploy_config.pop("n_episodes")
         logger.info(f"Running {n_episodes} (Random) episodes in {simulation_mode} mode")
 
-    if simulation_mode == "lss" or simulation_mode == "mcmc":
-        El = []
-        output_file = str(task) + "/converge.json"
-    elif simulation_mode == "tks":
+    # if simulation_mode == "lss" or simulation_mode == "mcmc":
+    El = []
+    output_file = str(task) + "/converge.json"
+    if simulation_mode == "tks":
         Tl = []
         Cl = []
         output_file = str(task) + "/diffuse.json"
@@ -64,12 +64,11 @@ def deploy_RL(task, logger, config, atoms_traj=None):
                                 atoms_traj=atoms_traj,
                                 mode=simulation_mode,
                                 **simulation_params)
-        if simulation_mode == "lss" or simulation_mode == "mcmc":
-            El.append(outputs[0])
-            with open(output_file, "w") as file:
-                json.dump(El, file)
-        elif simulation_mode == "tks":
-            Tl.append(outputs[0])
-            Cl.append(outputs[1])
+        El.append(outputs[0])
+        with open(output_file, "w") as file:
+            json.dump(El, file)
+        if simulation_mode == "tks":
+            Tl.append(outputs[1])
+            Cl.append(outputs[2])
             with open(output_file, "w") as file:
                 json.dump([Tl, Cl], file)
