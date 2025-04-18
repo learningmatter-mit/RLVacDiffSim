@@ -41,9 +41,10 @@ def deploy_RL(task, logger, config, atoms_traj=None):
 
     # if simulation_mode == "lss" or simulation_mode == "mcmc":
     El = []
-    Ql = []
     output_file = str(task) + "/converge.json"
-    output_file_q = str(task) + "/q_values.json"
+    if simulation_mode != "mcmc":
+        Ql = []
+        output_file_q = str(task) + "/q_values.json"
     if simulation_mode == "tks":
         Tl = []
         Cl = []
@@ -69,12 +70,12 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         El.append(outputs[0])
         with open(output_file, "w") as file:
             json.dump(El, file)
-        if simulation_mode == "tks":
-            Tl.append(outputs[1])
-            Cl.append(outputs[2])
-            with open(output_file_tks, "w") as file:
-                json.dump([Tl, Cl], file)
-        elif simulation_mode == "lss":
+        if simulation_mode != "mcmc":
             Ql.append(outputs[1])
             with open(output_file_q, "w") as file:
                 json.dump(Ql, file)
+        if simulation_mode == "tks":
+            Tl.append(outputs[2])
+            Cl.append(outputs[3])
+            with open(output_file_tks, "w") as file:
+                json.dump([Tl, Cl], file)
