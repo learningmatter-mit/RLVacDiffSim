@@ -119,23 +119,25 @@ class RLSimulator:
                                            T_start=simulation_params["T_start"],
                                            T_end=simulation_params["T_end"])
         Elist = [self.env.potential()]
+        Qlist = [[]]
         for tstep in range(horizon):
             if simulation_params.get("annealing_time", None) is not None:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
             else:
                 new_T = simulation_params["temperature"]
             action_space = get_action_space(self.env)
-            act_id, _, _ = self.select_action(action_space, new_T)
+            act_id, _, Q = self.select_action(action_space, new_T)
             action = action_space[act_id]
             _, _ = self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
             energy = self.env.potential()
             Elist.append(energy)
+            Qlist.append(Q.tolist())
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {new_T:.0f}, E: {energy:.3f}"
                 )
-        return (Elist,)
+        return (Elist, Qlist)
 
     def run_TKS(self, horizon, atoms_traj, logger, **simulation_params):
         tlist = [0]

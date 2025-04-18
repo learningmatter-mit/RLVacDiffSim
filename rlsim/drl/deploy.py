@@ -41,11 +41,13 @@ def deploy_RL(task, logger, config, atoms_traj=None):
 
     # if simulation_mode == "lss" or simulation_mode == "mcmc":
     El = []
+    Ql = []
     output_file = str(task) + "/converge.json"
+    output_file_q = str(task) + "/q_values.json"
     if simulation_mode == "tks":
         Tl = []
         Cl = []
-        output_file = str(task) + "/diffuse.json"
+        output_file_tks = str(task) + "/diffuse.json"
     for u in range(n_episodes):
         if deploy_config.get("all_episodes", False):
             logger.info(f"Episode: {u} (Serial)")
@@ -70,5 +72,9 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         if simulation_mode == "tks":
             Tl.append(outputs[1])
             Cl.append(outputs[2])
-            with open(output_file, "w") as file:
+            with open(output_file_tks, "w") as file:
                 json.dump([Tl, Cl], file)
+        elif simulation_mode == "lss":
+            Ql.append(outputs[1])
+            with open(output_file_q, "w") as file:
+                json.dump(Ql, file)
