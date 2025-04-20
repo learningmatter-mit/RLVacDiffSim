@@ -137,6 +137,8 @@ class RLSimulator:
                 logger.info(
                     f"Step: {tstep}, T: {new_T:.0f}, E: {energy:.3f}"
                 )
+        last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
+        io.write(last_atoms_filename, self.env.atoms, format="vasp")
         return (Elist, Qlist)
 
     def run_TKS(self, horizon, atoms_traj, logger, **simulation_params):
@@ -163,6 +165,8 @@ class RLSimulator:
                 logger.info(
                     f"Step: {tstep}, T: {temperature:.0f}, E: {self.env.potential():.3f}"
                 )
+        last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
+        io.write(last_atoms_filename, self.env.atoms, format="vasp")
         return (Elist, Qlist, tlist, clist)
     
     def run_MCMC(self, horizon, atoms_traj, logger, **simulation_params):
@@ -187,8 +191,8 @@ class RLSimulator:
                 logger.info(
                     f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {energy:.3f} eV"
                 )
-        last_atoms = atoms_traj.replace("XDATCAR", "last_atoms")
-        io.write(last_atoms, self.env.atoms, format="vasp")
+        last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
+        io.write(last_atoms_filename, self.env.atoms, format="vasp")
         return (Elist,)
 
     def mcmc_sweep(self, n_sweeps, temperature, vacancy_only=False):
