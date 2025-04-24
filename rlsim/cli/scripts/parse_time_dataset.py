@@ -73,22 +73,19 @@ def main(temperature, species, traj_list, goal_state_file, save_dir):
                 next_state = atoms_to_dict(atomsj[frame+1])
                 SRO = np.triu(get_sro_from_atoms(atomsj[frame]))
                 SRO_next = np.triu(get_sro_from_atoms(atomsj[frame+1]))
-                if np.linalg.norm(SRO) > np.linalg.norm(WC0) and np.linalg.norm(SRO_next) > np.linalg.norm(WC0):
-                    terminate = (np.linalg.norm(SRO-WC0) < cutoff)
-                    terminate_next = (np.linalg.norm(SRO_next-WC0) < cutoff)
-                    if terminate:
-                        numerator += 1
-                    if not terminate and terminate_next:
-                        next_frame_numerator += 1
-                    denominator += 1
-                    dataset.append({'state': state,
-                                    'next': next_state,
-                                    'dt': dt,
-                                    'SRO': SRO.tolist(),
-                                    'terminate': int(terminate),
-                                    'terminate_next': int(terminate_next)})
-                else:
-                    pass
+                terminate = (np.linalg.norm(SRO-WC0) < cutoff)
+                terminate_next = (np.linalg.norm(SRO_next-WC0) < cutoff)
+                if terminate:
+                    numerator += 1
+                if not terminate and terminate_next:
+                    next_frame_numerator += 1
+                denominator += 1
+                dataset.append({'state': state,
+                                'next': next_state,
+                                'dt': dt,
+                                'SRO': SRO.tolist(),
+                                'terminate': int(terminate),
+                                'terminate_next': int(terminate_next)})
             if j % 10 == 0:
                 print(f"{j} | {numerator/denominator*100:.3f} % | {next_frame_numerator / denominator*100:.3f} %")
     if not os.path.exists(save_dir):
