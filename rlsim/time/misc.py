@@ -29,12 +29,12 @@ from torch.utils.data.sampler import Sampler
 from torch_geometric.loader import DataLoader
 
 
-def preprocess_time(data, config, temperature_list):
+def preprocess_time(data, temperature_list, num_dataset: Optional[int] = None):
     """Preprocessing the timescape dataset
 
     Args:
         data : parsed dataset
-        config : configuration file
+        num_dataset : number of dataset
         temperature_list (List): list of temperatures
     terminate: 1 if the simulation is terminated, 0 otherwise
     """
@@ -43,23 +43,17 @@ def preprocess_time(data, config, temperature_list):
     time_list_all = []
     next_time_list_all = []
     temperature_list_all = []
-    atoms_list = [Atoms(positions = state['state']['positions'],
-                    cell = state['state']['cell'],
-                    numbers = state['state']['atomic_numbers'],
-                    pbc=[1,1,1]) for state in data];
+    atoms_list = [Atoms(positions=state['state']['positions'], cell=state['state']['cell'], numbers=state['state']['atomic_numbers'], pbc=[1, 1, 1]) for state in data]
 
-    next_list = [Atoms(positions = state['next']['positions'],
-                    cell = state['next']['cell'],
-                    numbers = state['next']['atomic_numbers'], 
-                    pbc=[1,1,1]) for state in data];
+    next_list = [Atoms(positions=state['next']['positions'], cell=state['next']['cell'], numbers=state['next']['atomic_numbers'], pbc=[1, 1, 1]) for state in data]
 
     time_list = torch.tensor([state['dt']*(1-state['terminate']) for state in data])
 
     temperature_list = torch.tensor([temp for temp in temperature_list])
     next_time_list = torch.tensor([(1-state['terminate_next']) for state in data])
 
-    atoms_list_all +=atoms_list
-    next_list_all +=next_list
+    atoms_list_all += atoms_list
+    next_list_all += next_list
     next_time_list_all.append(next_time_list)
     time_list_all.append(time_list)
     temperature_list_all.append(temperature_list)
@@ -81,12 +75,13 @@ def preprocess_time(data, config, temperature_list):
         shuffled_temp_total.append(temperature_list_all[idx].item())
         shuffled_atoms_total.append(atoms_list_all[idx])
         shuffled_next_atoms_total.append(next_list_all[idx])
-
-    filtered_atoms_final = shuffled_atoms_total[:config.get("num_dataset", -1)]
-    filtered_next_atoms_final = shuffled_next_atoms_total[:config.get("num_dataset", -1)]
-    filtered_time_final = shuffled_time_total[:config.get("num_dataset", -1)]
-    filtered_next_time_final = shuffled_next_time_total[:config.get("num_dataset", -1)]
-    filtered_temp_final = shuffled_temp_total[:config.get("num_dataset", -1)]
+    if num_dataset is None:
+        num_dataset = len(shuffled_atoms_total)
+    filtered_atoms_final = shuffled_atoms_total[:num_dataset]
+    filtered_next_atoms_final = shuffled_next_atoms_total[:num_dataset]
+    filtered_time_final = shuffled_time_total[:num_dataset]
+    filtered_next_time_final = shuffled_next_time_total[:num_dataset]
+    filtered_temp_final = shuffled_temp_total[:num_dataset]
 
     return filtered_atoms_final, filtered_next_atoms_final, filtered_time_final, filtered_next_time_final, filtered_temp_final
 
@@ -97,9 +92,9 @@ def get_total_n_atoms(n_atoms):
         total_n_atoms = 108
     elif n_atoms >= 200 and n_atoms < 300:
         total_n_atoms = 256
-    elif n_atoms >=300 and n_atoms <600:
+    elif n_atoms >= 300 and n_atoms < 600:
         total_n_atoms = 500
-    elif n_atoms >=600 and n_atoms < 900:
+    elif n_atoms >= 600 and n_atoms < 900:
         total_n_atoms = 864
     return total_n_atoms
 
