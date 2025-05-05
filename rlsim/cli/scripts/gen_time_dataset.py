@@ -33,16 +33,14 @@ def main(folder, config_name, steps, n_traj):
         raise click.BadParameter("You can specify at most two values for --steps.")
     if len(steps) == 1:
         step0 = 0
-        step1 = steps
-        click.echo(f"Single step: {step1}")
+        step1 = steps[0]
     else:
         step0, step1 = sorted(steps)
-        click.echo(f"Range steps: {step0} to {step1}")
 
+    click.echo(f"Ranging from {step0} to {step1}")
     if steps and n_traj:
         print("Collecting trajectory...")
         atoms_traj = []
-        step0, step1 = sorted(steps)[:2]
         for traj_index in range(n_traj):
             atoms_traj.extend(get_atoms_list(folder, [traj_index, step0, step1]))
     else:
