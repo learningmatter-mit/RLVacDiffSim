@@ -42,23 +42,51 @@ def atoms_to_dict(atoms):
              'cell': atoms.cell.tolist()}
     return state
 
+def is_inside_ellipsoid(SRO, SRO0, cov_matrix, inds=[0,1,3], threshold=2.0):
+    def extract_unique_pairs(mat):
+        return np.array([
+            mat[0, 0],  # Cr-Cr
+            mat[0, 1],  # Cr-Co
+            mat[0, 2],  # Cr-Ni
+            mat[1, 1],  # Co-Co
+            mat[1, 2],  # Co-Ni
+            mat[2, 2]   # Ni-Ni
+        ])
+    inds = np.array(inds)
+    cov = cov_matrix[inds][:,inds]
+    eigvals, eigvecs = np.linalg.eigh(cov)
+
+    center = extract_unique_pairs(SRO0)[inds]
+    point = extract_unique_pairs(SRO)[inds]
+
+    delta = point - center
+    delta_proj = eigvecs.T @ delta  # delta along the  principal axis
+    sigma = np.sqrt(eigvals) * threshold
+
+    normalized = np.abs(delta_proj) / sigma
+    return np.all(normalized <= 1.0)
+
 
 @click.command()
 @click.option("-t", "--temperature", required=True, type=float, help="Temperature of the simulation")
 @click.option("-g", "--goal_state_file", required=True, type=str, help="Path to the goal state data")
-@click.option("--species", required=True, type=int, multiple=True, help="Species to consider")
 @click.option("--traj_list", required=True, type=str, multiple=True, help="List of directories containing the trajectories")
 @click.option("--save_dir", required=True, default="./", help="Directory to save the results")
-def main(temperature, species, traj_list, goal_state_file, save_dir):
+def main(temperature, traj_list, goal_state_file, save_dir):
 
     numerator, denominator = 0, 0
     next_frame_numerator = 0.0
     goal_state_data = json.load(open(goal_state_file, "r"))
-    cutoff = goal_state_data["cutoff"][str(int(temperature))]
-    species = sorted(species)
+    threshold = goal_state_data["threshold"]
+    pairs = goal_state_data["pairs"]
+    indices = goal_state_data['indices']
+    species = goal_state_data["species"]
+    cov_matrix = np.asarray(goal_state_data["cov_matrix"][str(int(temperature))])
     WC0 = get_WC0(species, goal_state_data["goal_state"][str(int(temperature))])
     print(f"Goal state: \n{WC0}")
-    print(f"Goal state cutoff: {cutoff:.3f}")
+    print(f"{cov_matrix.shape[0]} X {cov_matrix.shape[1]} cov matrix")
+    print(f"Goal state axis: \n{[pairs[idx] for idx in indices]}")
+    print(f"Goal state threshold: {threshold:.3f}")
     for name in traj_list:
         print(name)
         with open(os.path.join(name, "diffuse.json"), 'r') as file:
@@ -73,8 +101,10 @@ def main(temperature, species, traj_list, goal_state_file, save_dir):
                 next_state = atoms_to_dict(atomsj[frame+1])
                 SRO = np.triu(get_sro_from_atoms(atomsj[frame]))
                 SRO_next = np.triu(get_sro_from_atoms(atomsj[frame+1]))
-                terminate = (np.linalg.norm(SRO-WC0) < cutoff)
-                terminate_next = (np.linalg.norm(SRO_next-WC0) < cutoff)
+                terminate = is_inside_ellipsoid(SRO, WC0, cov_matrix, indices, threshold)
+                terminate_next = is_inside_ellipsoid(SRO_next, WC0, cov_matrix, indices, threshold)
+                # terminate = (np.linalg.norm(SRO-WC0) < threshold)
+                # terminate_next = (np.linalg.norm(SRO_next-WC0) < threshold)
                 if terminate:
                     numerator += 1
                 if not terminate and terminate_next:
