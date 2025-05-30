@@ -192,6 +192,7 @@ class RLSimulator:
         return (Elist, Qlist, tlist, clist)
     
     def run_MCMC(self, horizon, atoms_traj, logger, **simulation_params):
+        logger.info(f"Action mode: {simulation_params.get('action_mode', 'vacancy_only')}")
         if simulation_params.get("annealing_time", None) is not None:
             T_scheduler = ThermalAnnealing(total_horizon=horizon,
                                            annealing_time=simulation_params["annealing_time"],
