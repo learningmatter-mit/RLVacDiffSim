@@ -45,13 +45,13 @@ def get_action_space(config, lattice_parameter: float = 3.528):
     return actions
 
 
-def get_action_space_mcmc(config, lattice_parameter: float = 3.528, vacancy_only=False):
+def get_action_space_mcmc(config, lattice_parameter: float = 3.528, action_mode="vacancy_only"):
     """First choosing focal atom and generate actions for that site
 
     Args:
         config (Environment): Environment
         lattice_parameter (float): Lattice paramter for a unit celll. Defaults to 3.528.
-        vacancy_only (bool): Whether you include non-physical actions. Defaults to False.
+        action_mode (str): Types of actions. Defaults to "vacancy_only".
 
     Returns:
         action_space: List of [site, vector]
@@ -98,13 +98,20 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528, vacancy_only
                      [0, -1, -1]])*a/2*0.8
 
     actions = []
-    if vacancy_only:
+    if action_mode == "vacancy_only":
         index = np.random.choice(vacancy_l)
         for vec in acts:
             vacant = test(index, vec)
             if vacant:
                 actions.append([index]+vec.tolist())
         return actions
+    elif action_mode == "fix_vacancy":
+        while not actions:
+            for index in filled_l:
+                for vec in acts:
+                    swap_sites = test_filled(index, vec)
+                    for site in swap_sites:
+                        actions.append([index]+[site])
     else:
         while not actions:
             index = np.random.choice(np.concatenate([vacancy_l, filled_l]))
