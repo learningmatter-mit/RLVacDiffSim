@@ -283,10 +283,10 @@ class Environment:
 
                 mass = input_atoms.get_masses()[NN]
                 mass = np.array([mass[i // 3] for i in range(3 * len(NN))])
-                mass_mat = np.sqrt(mass[:, None] * mass[None, :])
+                mass_mat = np.sqrt(mass[:, None] * mass[None, :])  # amu
                 Hessian = np.zeros([len(NN) * 3, len(NN) * 3])
-                f0 = input_atoms.get_forces()
-                pos_init = input_atoms.get_positions()
+                f0 = input_atoms.get_forces() # eV/angs
+                pos_init = input_atoms.get_positions() # angs
                 for u in range(len(NN)):
                     for j in range(3):
                         pos1 = pos_init.copy()

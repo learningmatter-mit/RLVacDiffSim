@@ -177,7 +177,7 @@ class RLSimulator:
             _, _ = self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
             Gamma = float(torch.sum(torch.exp(Q/kT)));
-            dt = 1 / Gamma * 10**-6  # 1/(microsecond)
+            dt = 1 / Gamma * 10**-6  # microsecond unit
             energy = self.env.potential()
             Elist.append(energy)
             tlist.append(tlist[-1] + dt)
