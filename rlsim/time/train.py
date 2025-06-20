@@ -156,7 +156,7 @@ class TimeTrainer:
             if epoch % self.train_config["offline_update"] == 0:
                 self.t_model_offline.load_state_dict(self.t_model.state_dict())
 
-            with open(f"{self.task}/{self.train_config['loss_filename']}", 'a') as file:
+            with open(f"{self.task}/{self.train_config.get('loss_filename', 'loss.txt')}", 'a') as file:
                 file.write(str(epoch)+'\t'+str(float(record/Nstep))+'\n')
         self.logger.info("Done...")
 
