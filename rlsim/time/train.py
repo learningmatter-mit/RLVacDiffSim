@@ -112,7 +112,7 @@ class TimeTrainer:
                 success = (batch["time"] == 0) # Goal state 1 is goal state 0 is not goal state
                 sucess_next = (batch["next_time"] == 0) # Goal state 1 is goal state 0 is not goal state
                 goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device) * success
-                next_out = self.t_model_offline(next_batch)["time"]
+                next_out = self.t_model_offline(next_batch, inference=True, training=True)["time"]
                 next_time = next_out * (~sucess_next)
                 label0 = gamma * next_time + term1
                 label = label0 * (~success)
@@ -169,13 +169,13 @@ class TimeTrainer:
             for batch, next_batch in zip(self.val_dataloader, self.val_dataloader_next):
                 batch = batch_to(batch, self.train_config["device"])
                 next_batch = batch_to(next_batch, self.train_config["device"])
-                pred = self.t_model(batch)
+                pred = self.t_model(batch, inference=False, training=True)
                 gamma = torch.exp(-batch["time"] / self.t_model.tau)
                 term1 = self.t_model.tau0 * (1-gamma)
                 success = (batch["time"] == 0) # Goal state
                 sucess_next = (batch["next_time"] == 0) # Goal state
                 goal_states = torch.tensor(1, dtype=term1.dtype, device=term1.device) * success
-                next_out = self.t_model_offline(next_batch)["time"]
+                next_out = self.t_model_offline(next_batch, inference=True, training=True)["time"]
                 next_time = next_out * (~sucess_next)
                 label0 = gamma * next_time + term1
                 label = label0 * (~success)
