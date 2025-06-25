@@ -167,7 +167,8 @@ def combined_loss(prediction, time_labels, goal_labels, omega_g=1.0, omega_t=1.0
 
 
 def combined_loss_binary(prediction, time_labels, goal_labels, omega_g=1.0, omega_t=1.0, omega_cls=1.0):
-    time_predictions = prediction["time"]
+    time_predictions = torch.log1p(prediction["time"])
+    time_labels = torch.log1p(time_labels)
     is_not_goal_state = (goal_labels == 0)
 
     time_loss = torch.mean((time_predictions[is_not_goal_state]- time_labels[is_not_goal_state])**2)
