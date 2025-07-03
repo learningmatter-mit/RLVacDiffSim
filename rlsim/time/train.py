@@ -24,8 +24,6 @@ from torch_geometric.loader import DataLoader
 
 from rlsim.time.misc import CustomSampler, combined_loss, combined_loss_binary
 
-BEST_LOSS = 1e18
-
 
 class TimeTrainer:
     def __init__(self, task, logger, config):
@@ -85,7 +83,7 @@ class TimeTrainer:
                                               batch_size=self.train_config["batch_size"],
                                               shuffle=False)
 
-    def train(self, best_loss=BEST_LOSS):
+    def train(self):
 
         self.logger.info(f"Working directory: {os.path.realpath(self.task)}")
 
@@ -94,7 +92,8 @@ class TimeTrainer:
         self.t_model.to(self.train_config["device"])
         self.t_model_offline.to(self.train_config["device"])
         self.logger.info("Start Training...")
-        for epoch in range(self.train_config["epoch"]):
+        self.total_epoch = self.train_config["epoch"]
+        for epoch in range(self.total_epoch):
             indices_train = np.arange(len(self.train_dataset))
             np.random.shuffle(indices_train)
             sampler = CustomSampler(indices_train)
@@ -120,13 +119,18 @@ class TimeTrainer:
                     loss = combined_loss(pred, 
                                          label.detach(), 
                                          goal_states.detach(), 
+                                         tau0=self.t_model.tau0,
+                                         omega_tau=omega_tau,
                                          omega_g=self.train_config["omega_g"],
                                          omega_t=self.train_config.get("omega_t", 1.0),
                                          )
                 elif self.t_model_name == "t_net_binary":
+                    omega_tau = self.get_omega_tau(epoch, self.total_epoch, self.train_config.get("omega_tau", 10))
                     loss = combined_loss_binary(pred, 
                                                 label.detach(), 
                                                 goal_states.detach(), 
+                                                tau0=self.t_model.tau0,
+                                                omega_tau=omega_tau,
                                                 omega_g=self.train_config["omega_g"],
                                                 omega_t=self.train_config.get("omega_t", 1.0),
                                                 omega_cls=self.train_config.get("omega_cls", 1.0), 
@@ -149,7 +153,6 @@ class TimeTrainer:
             self.logger.info(f"Epoch: {epoch} / {self.train_config['epoch']}, Loss: {float(record/Nstep):.4f}")
             val_loss = self.validate(epoch)
             is_best = True if epoch == self.train_config['epoch'] - 1 else False
-            # best_loss = min(val_loss, best_loss)
             self.scheduler.step(val_loss)
             self.save_model(epoch, is_best=is_best)
 
@@ -187,9 +190,12 @@ class TimeTrainer:
                                          omega_t=self.train_config.get("omega_t", 1.0),
                                          )
                 elif self.t_model_name == "t_net_binary":
+                    omega_tau = self.get_omega_tau(epoch, self.total_epoch, self.train_config.get("omega_tau", 10))
                     loss = combined_loss_binary(pred, 
                                                 label.detach(), 
                                                 goal_states.detach(), 
+                                                tau0=self.t_model.tau0,
+                                                omega_tau=omega_tau,
                                                 omega_g=self.train_config["omega_g"],
                                                 omega_t=self.train_config.get("omega_t", 1.0),
                                                 omega_cls=self.train_config.get("omega_cls", 1.0), 
@@ -214,3 +220,14 @@ class TimeTrainer:
             self.t_model.save(f"{self.task}/checkpoint{epoch}.pth.tar")
         if is_best:
             self.t_model.save(f"{self.task}/{self.train_config['save_model_name']}")
+
+    def get_omega_tau(self, epoch: int, total_epochs: int, init_tau: float = 10.0) -> float:
+        quarter_ep = total_epochs * 0.25
+
+        if epoch <= quarter_ep:
+            # Linearly decay every 10 epochs
+            num_steps = int(epoch // 10)
+            max_steps = int(quarter_ep // 10)
+            return init_tau * (1 - num_steps / max_steps)
+        else:
+            return 0.0

@@ -151,36 +151,59 @@ def make_t_dataset(atoms_list, atoms_list_next, target_time_list, target_next_ti
     return dataset, dataset_next
 
 
-def combined_loss(prediction, time_labels, goal_labels, omega_g=1.0, omega_t=1.0):
+def combined_loss(prediction, time_labels, goal_labels, tau0, omega_tau, omega_g=1.0, omega_t=1.0):
+    # time_predictions = torch.log1p(prediction["time"])
+    # time_labels = torch.log1p(time_labels)
     time_predictions = prediction["time"]
     is_not_goal_state = (goal_labels == 0)
 
     time_loss = torch.mean((time_predictions[is_not_goal_state] - time_labels[is_not_goal_state])**2)
+    time_loss_tau = torch.mean((tau0[is_not_goal_state]-time_predictions[is_not_goal_state])**2)
     goal_loss = torch.mean(time_predictions[~is_not_goal_state]**2)
-    if len(time_predictions[~is_not_goal_state]) !=0 and len(time_predictions[is_not_goal_state]) !=0:
-        total_loss = (omega_g*goal_loss + omega_t*time_loss)
-    elif len(time_predictions[~is_not_goal_state]) !=0 and len(time_predictions[is_not_goal_state]) ==0:
-        total_loss = omega_g*goal_loss
+    n_goal = len(time_predictions[~is_not_goal_state])
+    n_non_goal = len(time_predictions[is_not_goal_state])
+
+    if n_goal > 0 and n_non_goal > 0:
+        # Case 1: goal + non-goal
+        total_loss = (omega_g * goal_loss + omega_t * time_loss) + omega_tau * time_loss_tau
+    elif n_goal > 0 and n_non_goal == 0:
+        # Case 2: only goal
+        total_loss = omega_g * goal_loss
+    elif n_goal == 0 and n_non_goal > 0:
+        # Case 3: only non-goal
+        total_loss = omega_t * time_loss + omega_tau * time_loss_tau
     else:
-        total_loss = omega_t*time_loss
+        # Case 4: both empty – potentially invalid state
+        raise ValueError("Empty goal and non-goal states. Cannot compute total_loss.")
     return total_loss
 
 
-def combined_loss_binary(prediction, time_labels, goal_labels, omega_g=1.0, omega_t=1.0, omega_cls=1.0):
-    time_predictions = torch.log1p(prediction["time"])
-    time_labels = torch.log1p(time_labels)
+def combined_loss_binary(prediction, time_labels, goal_labels, tau0, omega_tau, omega_g=1.0, omega_t=1.0, omega_cls=1.0):
+    # time_predictions = torch.log1p(prediction["time"])
+    # time_labels = torch.log1p(time_labels)
+    time_predictions = prediction["time"]
     is_not_goal_state = (goal_labels == 0)
 
     time_loss = torch.mean((time_predictions[is_not_goal_state]- time_labels[is_not_goal_state])**2)
+    time_loss_tau = torch.mean((tau0[is_not_goal_state]-time_predictions[is_not_goal_state])**2)
     goal_loss = torch.mean(time_predictions[~is_not_goal_state]**2)
     goal_loss_binary = F.binary_cross_entropy_with_logits(prediction["goal"], goal_labels)
     total_loss = omega_g*goal_loss + omega_t*time_loss + omega_cls*goal_loss_binary
-    if len(time_predictions[~is_not_goal_state]) !=0 and len(time_predictions[is_not_goal_state]) !=0:
-        total_loss = omega_g*goal_loss + omega_t*time_loss + omega_cls*goal_loss_binary
-    elif len(time_predictions[~is_not_goal_state]) !=0 and len(time_predictions[is_not_goal_state]) ==0:
-        total_loss = omega_g*goal_loss + omega_cls*goal_loss_binary
+    n_goal = len(time_predictions[~is_not_goal_state])
+    n_non_goal = len(time_predictions[is_not_goal_state])
+
+    if n_goal > 0 and n_non_goal > 0:
+        # Case 1: both present
+        total_loss = omega_g * goal_loss + omega_t * time_loss + omega_cls * goal_loss_binary + omega_tau * time_loss_tau
+    elif n_goal > 0 and n_non_goal == 0:
+        # Case 2: only goal
+        total_loss = omega_g * goal_loss + omega_cls * goal_loss_binary
+    elif n_goal == 0 and n_non_goal > 0:
+        # Case 3: only non-goal
+        total_loss = omega_t * time_loss + omega_cls * goal_loss_binary + omega_tau * time_loss_tau
     else:
-        total_loss = omega_t*time_loss + omega_cls*goal_loss_binary
+        # Case 4: both empty – potentially invalid state
+        raise ValueError("Empty goal and non-goal states. Cannot compute total_loss.")
     return total_loss
 
 class CustomSampler(Sampler):
