@@ -12,27 +12,27 @@ from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 
-def timer_converter(t, tau, threshold=0.9999):
+def timer_converter(t, tau):
     """
     Converts time values in a batch-wise manner.
 
     Args:
         t (torch.Tensor): Input tensor of time values.
         tau (float or torch.Tensor): Time constant (can be scalar or tensor).
-        threshold (float, optional): Threshold value for switching to linear approximation.
 
     Returns:
         torch.Tensor: Converted time values with batch support.
     """
     # Create a mask for values below threshold * tau
-    mask = t < threshold * tau
+    mask = t > tau
+    if torch.any(mask):
+        # If value is above threshold, raise an error
+        raise ValueError(f"Time value {t[mask]} exceeds the tau {tau}.")
 
     # Compute values for both cases
     log_values = -tau * torch.log(1 - t / tau)
-    linear_values = tau * (t / tau - 1 + torch.log(torch.tensor(threshold, device=t.device, dtype=t.dtype)))
 
-    # Apply mask to select appropriate values
-    return torch.where(mask, log_values, linear_values)
+    return log_values
 
 
 def estimate_time(model, temperature, defect, traj_l, time_file, batch_size, device):
