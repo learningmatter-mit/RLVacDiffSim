@@ -156,9 +156,16 @@ def combined_loss(prediction, time_labels, goal_labels, tau0, omega_tau, omega_g
     # time_labels = torch.log1p(time_labels)
     time_predictions = prediction["time"]
     is_not_goal_state = (goal_labels == 0)
-
     time_loss = torch.mean((time_predictions[is_not_goal_state] - time_labels[is_not_goal_state])**2)
-    time_loss_tau = torch.mean((tau0[is_not_goal_state]-time_predictions[is_not_goal_state])**2)
+    if isinstance(tau0, (int, float)):
+        # convert scalar to tensor and broadcast
+        tau0_tensor = torch.full_like(time_predictions, fill_value=tau0)
+    else:
+        # assume it's already a tensor with correct shape
+        tau0_tensor = tau0
+
+    time_loss_tau = torch.mean((tau0_tensor[is_not_goal_state] - time_predictions[is_not_goal_state]) ** 2)
+
     goal_loss = torch.mean(time_predictions[~is_not_goal_state]**2)
     n_goal = len(time_predictions[~is_not_goal_state])
     n_non_goal = len(time_predictions[is_not_goal_state])
@@ -185,7 +192,15 @@ def combined_loss_binary(prediction, time_labels, goal_labels, tau0, omega_tau, 
     is_not_goal_state = (goal_labels == 0)
 
     time_loss = torch.mean((time_predictions[is_not_goal_state]- time_labels[is_not_goal_state])**2)
-    time_loss_tau = torch.mean((tau0[is_not_goal_state]-time_predictions[is_not_goal_state])**2)
+    if isinstance(tau0, (int, float)):
+        # convert scalar to tensor and broadcast
+        tau0_tensor = torch.full_like(time_predictions, fill_value=tau0)
+    else:
+        # assume it's already a tensor with correct shape
+        tau0_tensor = tau0
+
+    time_loss_tau = torch.mean((tau0_tensor[is_not_goal_state] - time_predictions[is_not_goal_state]) ** 2)
+
     goal_loss = torch.mean(time_predictions[~is_not_goal_state]**2)
     goal_loss_binary = F.binary_cross_entropy_with_logits(prediction["goal"], goal_labels)
     total_loss = omega_g*goal_loss + omega_t*time_loss + omega_cls*goal_loss_binary

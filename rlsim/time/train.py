@@ -116,23 +116,24 @@ class TimeTrainer:
                 label0 = gamma * next_time + term1
                 label = label0 * (~success)
                 if self.t_model_name == "t_net":
+                    omega_tau = self.get_omega_tau(epoch, self.total_epoch, self.train_config.get("omega_tau", self.train_config["omega_t"]))
                     loss = combined_loss(pred, 
                                          label.detach(), 
                                          goal_states.detach(), 
-                                         tau0=self.t_model.tau0,
-                                         omega_tau=omega_tau,
-                                         omega_g=self.train_config["omega_g"],
-                                         omega_t=self.train_config.get("omega_t", 1.0),
+                                         self.t_model.tau0,
+                                         omega_tau,
+                                         omega_g=self.train_config.get("omega_g", 1.0),
+                                         omega_t=self.train_config["omega_t"],
                                          )
                 elif self.t_model_name == "t_net_binary":
-                    omega_tau = self.get_omega_tau(epoch, self.total_epoch, self.train_config.get("omega_tau", 10))
+                    omega_tau = self.get_omega_tau(epoch, self.total_epoch, self.train_config.get("omega_tau", self.train_config["omega_t"]))
                     loss = combined_loss_binary(pred, 
                                                 label.detach(), 
                                                 goal_states.detach(), 
-                                                tau0=self.t_model.tau0,
-                                                omega_tau=omega_tau,
-                                                omega_g=self.train_config["omega_g"],
-                                                omega_t=self.train_config.get("omega_t", 1.0),
+                                                self.t_model.tau0,
+                                                omega_tau,
+                                                omega_g=self.train_config.get("omega_g", 1.0),
+                                                omega_t=self.train_config["omega_t"],
                                                 omega_cls=self.train_config.get("omega_cls", 1.0), 
                                                 )
                 record += loss.detach().cpu()
@@ -183,21 +184,24 @@ class TimeTrainer:
                 label0 = gamma * next_time + term1
                 label = label0 * (~success)
                 if self.t_model_name == "t_net":
+                    omega_tau = self.get_omega_tau(epoch, self.total_epoch, self.train_config.get("omega_tau", self.train_config["omega_t"]))
                     loss = combined_loss(pred, 
                                          label.detach(), 
                                          goal_states.detach(), 
-                                         omega_g=self.train_config["omega_g"],
-                                         omega_t=self.train_config.get("omega_t", 1.0),
+                                         self.t_model.tau0,
+                                         omega_tau,
+                                         omega_g=self.train_config.get("omega_g", 1.0),
+                                         omega_t=self.train_config["omega_t"],
                                          )
                 elif self.t_model_name == "t_net_binary":
                     omega_tau = self.get_omega_tau(epoch, self.total_epoch, self.train_config.get("omega_tau", 10))
                     loss = combined_loss_binary(pred, 
                                                 label.detach(), 
                                                 goal_states.detach(), 
-                                                tau0=self.t_model.tau0,
-                                                omega_tau=omega_tau,
-                                                omega_g=self.train_config["omega_g"],
-                                                omega_t=self.train_config.get("omega_t", 1.0),
+                                                self.t_model.tau0,
+                                                omega_tau,
+                                                omega_g=self.train_config.get("omega_g", 1.0),
+                                                omega_t=self.train_config["omega_t"],
                                                 omega_cls=self.train_config.get("omega_cls", 1.0), 
                                                 )
                 record += loss.detach().cpu()
