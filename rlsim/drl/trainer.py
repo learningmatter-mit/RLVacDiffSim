@@ -119,27 +119,17 @@ class Trainer:
     def dqn_update(self, memory_l, gamma, episode_size, num_epoch, batch_size=8, device="cuda"):
         self.target_net.load_state_dict(self.policy_value_net.state_dict())
         losses = AverageMeter()
-        prob = [0.99 ** (len(memory_l) - i) for i in range(len(memory_l))]
-        randint = np.random.choice(range(len(memory_l)),size=episode_size, p=prob / np.sum(prob))
-        states, next_states, taken_actions, rewards, next_aspace = (
-            [],
-            [],
-            [],
-            [],
-            [],
-        )
-        for u in randint:
-            memory = memory_l[u]
-            states += memory.states[:-1]
-            next_states += memory.next_states[:-1]
-            rewards += memory.rewards[:-1]
-            aspace = memory.act_space
-            actions = memory.actions
-            taken_actions += [
-                [aspace[i][actions[i]]] for i in range(len(aspace) - 1)
-            ]
-            next_aspace += [aspace[i] for i in range(1, len(aspace))]
-        rewards = torch.tensor(rewards, dtype=torch.float)
+
+        # Extract components from transition batch (Each batch contains memory_batch_size # of transitions)
+        states = [t["state"] for t in batch]
+        next_states = [t["next"] for t in batch]
+        actions = [t["act"] for t in batch]
+
+        rewards = [t["reward"] for t in batch]
+        fail_flags = [t["fail"] for t in batch]
+        next_aspace = [t["act_space"] for t in batch]        
+        rewards = torch.tensor(rewards,dtype=torch.float32).to(device)
+
         next_Q = torch.zeros(len(next_aspace))
         for i, state in enumerate(next_states):
             max_q = self.get_max_Q(
