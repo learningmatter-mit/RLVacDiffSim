@@ -9,9 +9,8 @@ from rgnn.common.registry import registry
 from rlsim.drl.simulator import RLSimulator
 from rlsim.drl.trainer import Trainer
 from rlsim.environment import Environment
-from rlsim.memory import Memory
+from rlsim.memory import Memory, ReplayBuffer
 import time
-
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
