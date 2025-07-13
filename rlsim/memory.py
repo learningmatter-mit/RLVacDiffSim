@@ -86,13 +86,14 @@ class Memory:
 
     def save(self, filename):
         keys = ["numbers", "positions", "cell", "pbc"]
+
         to_list = [
             self.alpha,
             self.beta,
             [{key: u.todict()[key].tolist() for key in keys} for u in self.states],
             self.E_min,
             [{key: u.todict()[key].tolist() for key in keys} for u in self.next_states],
-            self.actions,
+            [[float(a) for a in action] for action in self.actions],
             [[[int(v[0])] + v[1:] for v in u] for u in self.act_space],
             self.action_probs,
             self.rewards,
@@ -131,3 +132,49 @@ class Memory:
         for i in range(len(self.actions)):
             self.states.append(ase.Atoms.fromdict(states[i]))
             self.next_states.append(ase.Atoms.fromdict(next_states[i]))
+
+class ReplayBuffer:
+    def __init__(self, capacity, prioritized_memory=True):
+        self.capacity = capacity
+        self.buffer = []
+        self.prioritized_memory = prioritized_memory
+
+    def add_memory(self, memory):
+        for i in range(len(memory.actions)):
+            transition = {
+                "state": memory.states[i],
+                "act": memory.actions[i],
+                "act_space": memory.act_space[i],
+                "act_probs": memory.action_probs[i],
+                "next": memory.next_states[i],
+                "E_s": memory.E_s[i],
+                "E_min": memory.E_min[i],
+                "E_next": memory.E_next[i],
+                "fail": memory.fail[i],
+                "log_freq": memory.freq[i],
+                "reward": memory.rewards[i],
+            }
+            self.buffer.append(transition)
+        # Keep buffer size under capacity
+        if len(self.buffer) > self.capacity:
+            excess = len(self.buffer) - self.capacity
+            self.buffer = self.buffer[excess:]
+
+    def sample(self, batch_size):
+        if self.prioritized_memory:
+            if not self.buffer:
+                return []
+
+            # Assign priority based on absolute reward
+            priorities = np.array([abs(m["reward"]) for m in self.buffer], dtype=np.float32)
+            priorities += 1e-5  # small value to avoid divide-by-zero
+            probs = priorities / priorities.sum()
+
+            indices = np.random.choice(len(self.buffer), size=min(batch_size, len(self.buffer)), p=probs)
+            return [self.buffer[i] for i in indices]
+        else:
+            print("DEBUG: Not using prioritized memory")
+            return random.sample(self.buffer, min(batch_size, len(self.buffer)))
+
+    def __len__(self):
+        return len(self.buffer)
