@@ -1,4 +1,4 @@
-task = "train_test_dqn"
+task = "data/test"
 [logger]
 filename = "train"
 name = "TRAIN"
