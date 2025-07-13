@@ -1,4 +1,4 @@
-task = "data/test"
+task = "data/training_models/test"
 [logger]
 filename = "train"
 name = "TRAIN"
@@ -13,18 +13,20 @@ beta = 0.5
 dqn = true
 [model.reaction_model]
 "@name" = "painn" 
-model_path = "/path/to/reaction_model" # Change this to the model path e.g., "/home/hojechun/ssd_mnt/1-RLVacDiff/1-Models/best_model_mace_Vrandom_sum_0716.pth.tar"
+model_path = "models/reaction_model.pth.tar" # Assuming reaction model is in models directory
 
 [train]
 device = "cuda"
 horizon = 50
 lr = 1e-5
 mode = "dqn"
-n_episodes = 100
-n_poscars = [100]
-poscar_dir = ["/path/to/poscars"] # Change this to the directory where your POSCAR files are stored.
+n_episodes = 10
+n_poscars = [1]
+poscar_dir = ["data"] # Change this to the directory where your POSCAR files are stored.
 temperature = [300, 500, 700, 900]
 train_all = true
+memory_batch_size = 64 # Num of transitions per batch
+
 [train.update_params]
 batch_size = 8
 gamma = 0.9
@@ -37,3 +39,6 @@ max_iter = 100
 platform = "mace"
 relax_accuracy = 0.05
 relax_log = "relax.log"
+
+[misc]
+prioritized_memory = true #Prioritized Experience Replay. If false, uses random sampling
