@@ -98,6 +98,8 @@ class RLSimulator:
         }
 
         E_next, fail = self.env.step(action)
+        energy = self.env.potential() #FOR DEBUGGING
+        print(energy) #FOR DEBUGGING
         self.env.normalize_positions()  # TODO: why do we need is this?
         if not fail and self.q_params["alpha"] != 0.0:
             initial_atoms = self.env.initial.copy()
