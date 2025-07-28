@@ -116,7 +116,7 @@ class Trainer:
         max_q = torch.max(next_q)
         return max_q
 
-    def dqn_update(self, memory_l, gamma, episode_size, num_epoch, batch_size=8, device="cuda"):
+    def dqn_update(self, batch, gamma=0.9, num_epoch=5, batch_size=8, device="cuda"):
         self.target_net.load_state_dict(self.policy_value_net.state_dict())
         losses = AverageMeter()
 
@@ -127,32 +127,35 @@ class Trainer:
 
         rewards = [t["reward"] for t in batch]
         fail_flags = [t["fail"] for t in batch]
-        next_aspace = [t["act_space"] for t in batch]        
-        rewards = torch.tensor(rewards,dtype=torch.float32).to(device)
+        next_aspace = [t["act_space"] for t in batch]
 
-        next_Q = torch.zeros(len(next_aspace))
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
+
+        # Compute next Q-values using target network
+        next_Q = torch.zeros(len(next_aspace)).to(device)
         for i, state in enumerate(next_states):
-            max_q = self.get_max_Q(
-                self.target_net, state, next_aspace[i], device=device
-            )
-            next_Q[i] = max_q
+            if not fail_flags[i]:
+                max_q = self.get_max_Q(self.target_net, state, next_aspace[i], device=device)
+                next_Q[i] = max_q
+
+        # Prepare training samples
         dataset_list = []
         for i, state in enumerate(states):
-            graph_list = convert(state, taken_actions[i])
+            graph_list = convert(state, [actions[i]])
             for data in graph_list:
                 data.rl_q = next_Q[i] * gamma + rewards[i]
                 dataset_list.append(data)
+        print(f"[DEBUG] dqn_update: Number of training graphs = {len(dataset_list)}")
         dataset = ReactionDataset(dataset_list)
         q_dataloader = DataLoader(
             dataset, batch_size=batch_size, shuffle=False
         )
+
         self.policy_value_net.train()
         for _ in range(num_epoch):
             for batch in q_dataloader:
                 batch = batch_to(batch, device)
-                q_pred = self.policy_value_net(batch, q_params=self.q_params)[
-                    "rl_q"
-                ]
+                q_pred = self.policy_value_net(batch, q_params=self.q_params)["rl_q"]
                 loss = torch.mean((batch["rl_q"] - q_pred) ** 2)
                 self.optimizer.zero_grad()
                 loss.backward(retain_graph=True)
@@ -162,12 +165,12 @@ class Trainer:
                 self.optimizer.step()
                 losses.update(loss.detach().item())
                 del batch, q_pred, loss
+
         if device == "cuda":
             torch.cuda.empty_cache()
         del dataset, q_dataloader
-        
-        return losses.avg
 
+        return losses.avg
 
 def convert(atoms: Atoms, actions: List[List[float]]) -> List[ReactionGraph]:
     traj_reactant = []
