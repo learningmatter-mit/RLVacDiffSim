@@ -20,6 +20,7 @@ from rgnn.train.trainer import AverageMeter
 from torch_geometric.loader import DataLoader
 
 
+
 class Trainer:
     def __init__(
             self,
@@ -53,6 +54,7 @@ class Trainer:
     
     def context_bandit_update(self, memory_l, episode_size, num_epoch, batch_size=8, device="cuda"):
         self.policy_value_net.to(device)
+        print("Policy net first parameter is on device:", next(self.policy_value_net.parameters()).device)
         self.policy_value_net.train()
         losses = AverageMeter()
         loss_fn = WeightedSumLoss(
@@ -72,8 +74,8 @@ class Trainer:
             taken_actions += [[aspace[i][actions[i]]] for i in range(len(aspace))]
             barrier += memory.barrier
             freq += memory.freq
-        barrier = torch.tensor(barrier, dtype=torch.float)
-        freq = torch.tensor(freq, dtype=torch.float)
+        barrier = torch.tensor(barrier, dtype=torch.float).to(device)
+        freq = torch.tensor(freq, dtype=torch.float).to(device)
         dataset_list = []
         for i, state in enumerate(states):
             graph_list = convert(state, taken_actions[i])
@@ -175,7 +177,9 @@ class Trainer:
 def convert(atoms: Atoms, actions: List[List[float]]) -> List[ReactionGraph]:
     traj_reactant = []
     traj_product = []
+    print("Actions: ",actions)
     for act in actions:
+        print("Act: ", act)
         traj_reactant.append(atoms)
         final_atoms = atoms.copy()
         final_positions = []
@@ -187,6 +191,7 @@ def convert(atoms: Atoms, actions: List[List[float]]) -> List[ReactionGraph]:
                 final_positions.append(pos)
         final_atoms.set_positions(final_positions)
         traj_product.append(final_atoms)
+
     graph_list = []
     for i in range(len(traj_reactant)):
         data = ReactionGraph.from_ase(traj_reactant[i], traj_product[i])
