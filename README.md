@@ -30,9 +30,6 @@ pip install -e .
 pip install -e ".[dev]" # For developer version
 ```
 
-## Install `MACE`, `RGNN`
-- `MACE`: `pip install mace-torch==0.3.6`
-- `RGNN`: install from [github page]("https://github.com/learningmatter-mit/ReactionGraphNeuralNetwork")
 
 ## Usage
 We provide scripts in command line interface (CLI).

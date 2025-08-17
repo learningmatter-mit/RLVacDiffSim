@@ -14,6 +14,8 @@ dependencies = [
   "pymatgen>=2022.5.26",
   "torch>=1.12.0",
   "torchdata>=0.6.0",
+  "nff @ git+https://github.com/learningmatter-mit/NeuralForceField.git@fine_tuning",
+  "rgnn @ git+https://github.com/learningmatter-mit/ReactionGraphNeuralNetwork.git@main",
   "torch-geometric>=2.3",
   "torch_sparse",
   "inflection",
