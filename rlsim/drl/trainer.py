@@ -20,6 +20,7 @@ from rgnn.train.trainer import AverageMeter
 from torch_geometric.loader import DataLoader
 
 
+
 class Trainer:
     def __init__(
             self,
@@ -53,6 +54,7 @@ class Trainer:
     
     def context_bandit_update(self, memory_l, episode_size, num_epoch, batch_size=8, device="cuda"):
         self.policy_value_net.to(device)
+        print("Policy net first parameter is on device:", next(self.policy_value_net.parameters()).device)
         self.policy_value_net.train()
         losses = AverageMeter()
         loss_fn = WeightedSumLoss(
@@ -72,8 +74,8 @@ class Trainer:
             taken_actions += [[aspace[i][actions[i]]] for i in range(len(aspace))]
             barrier += memory.barrier
             freq += memory.freq
-        barrier = torch.tensor(barrier, dtype=torch.float)
-        freq = torch.tensor(freq, dtype=torch.float)
+        barrier = torch.tensor(barrier, dtype=torch.float).to(device)
+        freq = torch.tensor(freq, dtype=torch.float).to(device)
         dataset_list = []
         for i, state in enumerate(states):
             graph_list = convert(state, taken_actions[i])
@@ -116,53 +118,46 @@ class Trainer:
         max_q = torch.max(next_q)
         return max_q
 
-    def dqn_update(self, memory_l, gamma, episode_size, num_epoch, batch_size=8, device="cuda"):
+    def dqn_update(self, batch, gamma=0.9, num_epoch=5, batch_size=8, device="cuda"):
         self.target_net.load_state_dict(self.policy_value_net.state_dict())
         losses = AverageMeter()
-        prob = [0.99 ** (len(memory_l) - i) for i in range(len(memory_l))]
-        randint = np.random.choice(range(len(memory_l)),size=episode_size, p=prob / np.sum(prob))
-        states, next_states, taken_actions, rewards, next_aspace = (
-            [],
-            [],
-            [],
-            [],
-            [],
-        )
-        for u in randint:
-            memory = memory_l[u]
-            states += memory.states[:-1]
-            next_states += memory.next_states[:-1]
-            rewards += memory.rewards[:-1]
-            aspace = memory.act_space
-            actions = memory.actions
-            taken_actions += [
-                [aspace[i][actions[i]]] for i in range(len(aspace) - 1)
-            ]
-            next_aspace += [aspace[i] for i in range(1, len(aspace))]
-        rewards = torch.tensor(rewards, dtype=torch.float)
-        next_Q = torch.zeros(len(next_aspace))
+
+        # Extract components from transition batch (Each batch contains memory_batch_size # of transitions)
+        states = [t["state"] for t in batch]
+        next_states = [t["next"] for t in batch]
+        actions = [t["act"] for t in batch]
+
+        rewards = [t["reward"] for t in batch]
+        fail_flags = [t["fail"] for t in batch]
+        next_aspace = [t["act_space"] for t in batch]
+
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
+
+        # Compute next Q-values using target network
+        next_Q = torch.zeros(len(next_aspace)).to(device)
         for i, state in enumerate(next_states):
-            max_q = self.get_max_Q(
-                self.target_net, state, next_aspace[i], device=device
-            )
-            next_Q[i] = max_q
+            if not fail_flags[i]:
+                max_q = self.get_max_Q(self.target_net, state, next_aspace[i], device=device)
+                next_Q[i] = max_q
+
+        # Prepare training samples
         dataset_list = []
         for i, state in enumerate(states):
-            graph_list = convert(state, taken_actions[i])
+            graph_list = convert(state, [actions[i]])
             for data in graph_list:
                 data.rl_q = next_Q[i] * gamma + rewards[i]
                 dataset_list.append(data)
+        print(f"[DEBUG] dqn_update: Number of training graphs = {len(dataset_list)}")
         dataset = ReactionDataset(dataset_list)
         q_dataloader = DataLoader(
             dataset, batch_size=batch_size, shuffle=False
         )
+
         self.policy_value_net.train()
         for _ in range(num_epoch):
             for batch in q_dataloader:
                 batch = batch_to(batch, device)
-                q_pred = self.policy_value_net(batch, q_params=self.q_params)[
-                    "rl_q"
-                ]
+                q_pred = self.policy_value_net(batch, q_params=self.q_params)["rl_q"]
                 loss = torch.mean((batch["rl_q"] - q_pred) ** 2)
                 self.optimizer.zero_grad()
                 loss.backward(retain_graph=True)
@@ -172,17 +167,19 @@ class Trainer:
                 self.optimizer.step()
                 losses.update(loss.detach().item())
                 del batch, q_pred, loss
+
         if device == "cuda":
             torch.cuda.empty_cache()
         del dataset, q_dataloader
-        
-        return losses.avg
 
+        return losses.avg
 
 def convert(atoms: Atoms, actions: List[List[float]]) -> List[ReactionGraph]:
     traj_reactant = []
     traj_product = []
+    print("Actions: ",actions)
     for act in actions:
+        print("Act: ", act)
         traj_reactant.append(atoms)
         final_atoms = atoms.copy()
         final_positions = []
@@ -194,6 +191,7 @@ def convert(atoms: Atoms, actions: List[List[float]]) -> List[ReactionGraph]:
                 final_positions.append(pos)
         final_atoms.set_positions(final_positions)
         traj_product.append(final_atoms)
+
     graph_list = []
     for i in range(len(traj_reactant)):
         data = ReactionGraph.from_ase(traj_reactant[i], traj_product[i])

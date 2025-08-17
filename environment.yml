@@ -6,12 +6,12 @@ dependencies:
   - matplotlib=3.8.2
   - pip
   - pymatgen=2023.3.10
-  - python=3.10.13=hd12c33a_1_cpython
-  - scipy=1.10.1=py310hd5efca6_0
+  - python=3.10
+  - scipy=1.10.1
   - toml=0.10.2
-  - tomli=2.0.1=pyhd8ed1ab_0
-  - tqdm=4.65.0=pyhd8ed1ab_1
-  - yaml=0.2.5=h7f98852_2
+  - tomli=2.0.1
+  - tqdm=4.65.0
+  - yaml=0.2.5
   - numpy
 
   - pip:
@@ -21,4 +21,3 @@ dependencies:
       - jupyter-console==6.4.3
       - jupyterlab-pygments==0.2.2
       - jupyterlab-widgets==1.1.0
-

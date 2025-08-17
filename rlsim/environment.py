@@ -44,7 +44,7 @@ class Environment:
         else:
             raise "Atoms should be properly given"
         self.n_atom = len(self.atoms)
-        self.pos = self.positions("cartesion").tolist()
+        self.pos = self.positions("cartesian").tolist()
         self.calc_params = calc_params
         if calculator is not None:
             self.atoms.calc = calculator
@@ -210,13 +210,13 @@ class Environment:
 
     def step(self, action: list = []):
         self.action = action
-        self.pos_last = self.positions(f="cartesion")
+        self.pos_last = self.positions(f="cartesian")
         self.initial = self.atoms.copy()
         self.act_atom = self.action[0]
         if len(self.action) == 2:  # Swap sites
-            new_pos = self.positions(f="cartesion")
-            act_pos = self.positions(f="cartesion")[self.action[0]]
-            swap_pos = self.positions(f="cartesion")[self.action[1]]
+            new_pos = self.positions(f="cartesian")
+            act_pos = self.positions(f="cartesian")[self.action[0]]
+            swap_pos = self.positions(f="cartesian")[self.action[1]]
 
             new_pos[self.action[0]] = swap_pos
             new_pos[self.action[1]] = act_pos
@@ -228,11 +228,11 @@ class Environment:
                 + [self.action[1:]]
                 + [[0, 0, 0]] * (self.n_atom - 1 - self.act_atom)
             )
-            self.pos = (self.positions(f="cartesion") + self.act_displace).tolist()
-        self.set_atoms(self.pos, convention="cartesion")
+            self.pos = (self.positions(f="cartesian") + self.act_displace).tolist()
+        self.set_atoms(self.pos, convention="cartesian")
 
         converge = self.relax()
-        fail = int(norm(self.pos_last - self.positions(f="cartesion")) < 0.2) + (
+        fail = int(norm(self.pos_last - self.positions(f="cartesian")) < 0.2) + (
             not converge
         )
         E_next = self.potential()
@@ -240,7 +240,7 @@ class Environment:
         return E_next, fail
 
     def revert(self):
-        self.set_atoms(self.pos_last, convention="cartesion")
+        self.set_atoms(self.pos_last, convention="cartesian")
 
     def mask(self, act_atom):
         dist = self.atoms.get_distances(range(self.n_atom), act_atom)

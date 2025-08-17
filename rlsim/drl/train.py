@@ -9,8 +9,8 @@ from rgnn.common.registry import registry
 from rlsim.drl.simulator import RLSimulator
 from rlsim.drl.trainer import Trainer
 from rlsim.environment import Environment
-from rlsim.memory import Memory
-
+from rlsim.memory import Memory, ReplayBuffer
+import time
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
@@ -62,7 +62,7 @@ def train_DQN(task, logger, config):
         train_all=train_config["train_all"],
     )
 
-    replay_list = []
+    replay_buffer = ReplayBuffer(capacity=10000, prioritized_memory=config["misc"]["prioritized_memory"]) #Second arg checks if true or false in config
     for epoch in range(n_episodes):
         atoms = pool[np.random.randint(len(pool))]
         temperature = random.choice(train_config["temperature"])
@@ -72,15 +72,18 @@ def train_DQN(task, logger, config):
         simulator = RLSimulator(environment=env,
                                 model=model,
                                 q_params=model_config["params"])
-        replay_list.append(
-            Memory(q_params["alpha"], q_params["beta"], T=temperature)
-        )
+        episode_memory = Memory(q_params["alpha"], q_params["beta"], T=temperature) 
         for tstep in range(horizon):
             info = simulator.step(temperature)
-            replay_list[-1].add(info)
+            episode_memory.add(info) 
             logger.info(f"  tstep : {tstep}")
-        train_config["update_params"].update({"episode_size": int(1 + epoch ** (2 / 3))})
-        loss = trainer.update(memory_l=replay_list, mode=train_mode, **train_config["update_params"])
+        replay_buffer.add_memory(episode_memory)
+        update_start = time.time() #Logging model update time
+        logger.info(f"Starting model update at epoch {epoch} with {len(replay_buffer)} memories.")
+        batch = replay_buffer.sample(train_config["memory_batch_size"])
+        loss = trainer.update(memory_l=batch, mode=train_mode, **train_config["update_params"])
+        update_end = time.time()
+        logger.info(f"Finished model update at epoch {epoch}, duration: {update_end - update_start:.2f} seconds")
         with open(task + "/loss.txt", "a") as file:
             file.write(str(epoch) + "\t" + str(loss) + "\n")
             logger.info(f"   Loss : {loss:.3f}")
@@ -91,5 +94,6 @@ def train_DQN(task, logger, config):
 
         if epoch % 10 == 0:
             model.save(task + "/model/model" + str(epoch))
+        logger.info("Saving final model state")
         model.save(task + "/model/model_trained")
 
