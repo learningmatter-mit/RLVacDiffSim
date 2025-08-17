@@ -30,7 +30,6 @@ pip install -e .
 pip install -e ".[dev]" # For developer version
 ```
 
-
 ## Usage
 We provide scripts in command line interface (CLI).
 Trained models and initial poscars (256 atoms with mono vacancy) are saved in figshare [TBD]
