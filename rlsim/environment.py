@@ -115,17 +115,20 @@ class Environment:
                 
         elif platform == 'kimpy':
             from ase.calculators.kim.kim import KIM
-            calculator = KIM(potential_id);
-        
+            calculator = KIM(potential_id)
         elif platform =='ase':
             from ase.calculators.eam import EAM
-            calculator = EAM(potential=potential_id);
+            calculator = EAM(potential=potential_id)
         elif platform == 'matlantis':
             from pfp_api_client.pfp.calculators.ase_calculator import \
                 ASECalculator
             from pfp_api_client.pfp.estimator import Estimator
-            estimator = Estimator(model_version="v4.0.0");
-            calculator = ASECalculator(estimator);
+            estimator = Estimator(model_version="v4.0.0")
+            calculator = ASECalculator(estimator)
+        elif platform == "uma":
+            from fairchem.core import FAIRChemCalculator, pretrained_mlip
+            predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device="cuda")
+            calculator = FAIRChemCalculator(predictor, task_name="omat")
         else:
             raise 'Error: platform should be set as either matlantis or kimpy'
         return calculator
@@ -136,11 +139,11 @@ class Environment:
         cell = self.atoms.cell
         pbc = self.atoms.pbc
         if slab:
-            cell[2,2] *= 1 + 10/norm(cell[2,2]);
+            cell[2,2] *= 1 + 10/norm(cell[2,2])
         if convention == 'frac':
-            self.atoms = ase.Atoms(element, cell=cell, pbc=pbc, scaled_positions=pos);
+            self.atoms = ase.Atoms(element, cell=cell, pbc=pbc, scaled_positions=pos)
         else:
-            self.atoms = ase.Atoms(element, cell=cell, pbc=pbc, positions=pos);
+            self.atoms = ase.Atoms(element, cell=cell, pbc=pbc, positions=pos)
         self.atoms.calc = self.get_calculator(**self.calc_params)
     
     def remove_atom(self, atom_index):
@@ -190,10 +193,10 @@ class Environment:
             for j in range(3):
                 pos1 = pos.copy()
                 pos1[i][j] += delta
-                self.atoms.set_positions(pos1);
+                self.atoms.set_positions(pos1)
                 Hessian[j] = -(self.forces()-f0)[i]/delta
             prod = np.prod(np.linalg.eigvalsh((Hessian+Hessian.T)/2))
-            log_niu_prod += np.log(prod)/2 # + 3*np.log(1.55716*10);
+            log_niu_prod += np.log(prod)/2 # + 3*np.log(1.55716*10)
             
         self.atoms.set_positions(pos)
         return log_niu_prod
