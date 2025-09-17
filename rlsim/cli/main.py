@@ -4,9 +4,6 @@ import click
 import toml
 from ase import io
 
-from rlsim.drl.deploy import deploy_RL
-from rlsim.drl.train import train_DQN
-from rlsim.time.train import TimeTrainer
 from rlsim.utils.logger import setup_logger
 
 
@@ -50,8 +47,10 @@ def main(simulation, config_name):
     log_filename = f"{task}/{logger_config['filename']}.log"
     logger = setup_logger(logger_config["name"], log_filename)
     if simulation == "rl-train":
+        from rlsim.drl.train import train_DQN
         train_DQN(task, logger, config)
     elif simulation == "rl-deploy":
+        from rlsim.drl.deploy import deploy_RL
         if "atoms_list" in config["deploy"].keys():
             atoms_list = config["deploy"].pop("atoms_list")
             atoms_traj = []
@@ -62,6 +61,7 @@ def main(simulation, config_name):
         else:
             deploy_RL(task, logger, config)
     elif simulation == "time-train":
+        from rlsim.time.train import TimeTrainer
         t_trainer = TimeTrainer(task, logger, config)
         t_trainer.train()
     else:
