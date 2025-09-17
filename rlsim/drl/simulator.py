@@ -11,9 +11,6 @@ from ase import Atoms, io
 from ase.neb import NEB
 from ase.optimize import BFGS, FIRE, MDMin
 from numpy.linalg import norm
-from rgnn.graph.dataset.reaction import ReactionDataset
-from rgnn.graph.reaction import ReactionGraph
-from rgnn.graph.utils import batch_to
 from torch_geometric.loader import DataLoader
 
 from rlsim.actions.action import get_action_space, get_action_space_mcmc
@@ -39,6 +36,9 @@ class RLSimulator:
         self.sro_interval = sro_interval
 
     def select_action(self, action_space, temperature):
+        from rgnn.graph.dataset.reaction import ReactionDataset
+        from rgnn.graph.utils import batch_to
+        
         self.update_q_params(**{"temperature": temperature})
         self.model.to(self.device)
         self.model.eval()
@@ -274,7 +274,8 @@ class ThermalAnnealing:
         return T
 
 
-def convert_to_graph_list(atoms: Atoms, actions: List[List[float]]) -> List[ReactionGraph]:
+def convert_to_graph_list(atoms: Atoms, actions: List[List[float]]) -> List["ReactionGraph"]:
+    from rgnn.graph.reaction import ReactionGraph
     traj_reactant = []
     traj_product = []
     for act in actions:
