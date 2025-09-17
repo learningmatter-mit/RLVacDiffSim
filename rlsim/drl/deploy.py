@@ -3,7 +3,6 @@ import os
 
 import numpy as np
 import toml
-from rgnn.common.registry import registry
 
 from rlsim.drl.simulator import RLSimulator
 from rlsim.environment import Environment
@@ -15,6 +14,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     deploy_config = config["deploy"]
     model_config = config.get("model", None)
     if model_config is not None:
+        from rgnn.common.registry import registry
         model = registry.get_model_class(model_config["@name"]).load(f"{model_config['model_path']}")
         model_params = model_config["params"]
     else:
