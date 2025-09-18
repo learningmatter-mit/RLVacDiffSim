@@ -84,6 +84,15 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528, action_mode=
                 swap_sites.append(j)
         return swap_sites
 
+    def test_filled_all(i):
+        test = config.atoms.copy()
+        symbols_test = test.get_chemical_symbols()
+        swap_sites = []
+        for j, symbol in enumerate(symbols_test):
+            if symbol != symbols_test[i]:
+                swap_sites.append(j)
+        return swap_sites
+
     acts = np.array([[1, 1, 0],
                      [1, -1, 0],
                      [-1, 1, 0],
@@ -99,7 +108,8 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528, action_mode=
 
     actions = []
     if action_mode == "vacancy_only":
-        index = np.random.choice(vacancy_l)
+        rng = np.random.default_rng()
+        index = rng.choice(vacancy_l)
         for vec in acts:
             vacant = test(index, vec)
             if vacant:
@@ -107,15 +117,26 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528, action_mode=
         return actions
     elif action_mode == "fix_vacancy":
         while not actions:
-            index = np.random.choice(filled_l)
+            rng = np.random.default_rng()
+            index = rng.choice(filled_l)
             for vec in acts:
                 swap_sites = test_filled(index, vec)
                 for site in swap_sites:
                     actions.append([index]+[site])
         return actions
+    
+    elif action_mode == "fix_vacancy_all":
+        while not actions:
+            rng = np.random.default_rng()
+            index = rng.choice(filled_l)
+            swap_sites = test_filled_all(index)
+            for site in swap_sites:
+                actions.append([index]+[site])
+        return actions
     else:
         while not actions:
-            index = np.random.choice(np.concatenate([vacancy_l, filled_l]))
+            rng = np.random.default_rng()
+            index = rng.choice(np.concatenate([vacancy_l, filled_l]))
             if index in vacancy_l:
                 for vec in acts:
                     vacant = test(index, vec)

@@ -65,6 +65,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
             logger.info(f"Episode: {u} (Random)")
             file = pool[np.random.randint(len(pool))]
         env = Environment(file, calc_params=calc_params)
+        logger.info(f"Calculator: {calc_params['platform']}")
         env.relax()
         simulator = RLSimulator(environment=env,
                                 model=model,

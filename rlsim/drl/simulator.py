@@ -69,7 +69,7 @@ class RLSimulator:
             Q = Q[valid_actions]
         
         action_probs = nn.Softmax(dim=0)(Q/(temperature*self.kb))
-        action = np.random.choice(
+        action = random.choice(
             len(action_probs.detach().cpu().numpy()),
             p=action_probs.detach().cpu().numpy(),
         )
@@ -82,7 +82,7 @@ class RLSimulator:
     def step(self, temperature=None, random=False):
         action_space = get_action_space(self.env)
         if random:
-            act_id = np.random.choice(len(action_space))
+            act_id = random.choice(len(action_space))
             act_probs = np.array([])
         elif not random and temperature is not None:
             act_id, act_probs, _ = self.select_action(action_space, temperature)
@@ -206,7 +206,7 @@ class RLSimulator:
             else:
                 new_T = simulation_params["temperature"]
             n_sweeps = simulation_params.get("n_sweeps", 1)
-            energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T, action_mode=simulation_params.get("action_mode", "vacancy_only"))
+            energy, accept, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T, action_mode=simulation_params.get("action_mode", "vacancy_only"))
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
 
             Elist.append(energy)
@@ -232,7 +232,8 @@ class RLSimulator:
         base_prob = 0.0
         kT = temperature * 8.617 * 10**-5
         action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
-        action = random.choice(action_space)
+        rng = np.random.default_rng()
+        action = rng.choice(action_space)
         E_prev = self.env.potential()
         E_next, fail = self.env.step(action)
 
