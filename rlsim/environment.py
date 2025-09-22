@@ -127,7 +127,12 @@ class Environment:
             calculator = ASECalculator(estimator)
         elif platform == "uma":
             from fairchem.core import FAIRChemCalculator, pretrained_mlip
-            predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device="cuda")
+            from fairchem.core.units.mlip_unit import load_predict_unit
+            
+            try:
+                predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device="cuda")
+            except:
+                predictor = load_predict_unit(kwargs.get("model_path"), "default", None, "cuda")
             calculator = FAIRChemCalculator(predictor, task_name="omat")
         else:
             raise 'Error: platform should be set as either matlantis or kimpy'
