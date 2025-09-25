@@ -54,11 +54,9 @@ class Environment:
     
     @classmethod
     def get_calculator(cls,
-                       platform: str = 'mace',
-                       device: str = "cuda",
-                       potential_id: str = '2018--Choi-W-M-Jo-Y-H-Sohn-S-S-et-al--Co-Ni-Cr-Fe-Mn',
                        **kwargs):
-
+        platform = kwargs.get("platform")
+        device = kwargs.get("device", "cuda")
         if platform == 'mace':
             from mace.calculators import MACECalculator
             MACE_URLS = dict(
@@ -115,9 +113,11 @@ class Environment:
                 
         elif platform == 'kimpy':
             from ase.calculators.kim.kim import KIM
+            potential_id = kwargs.get("potential_id")
             calculator = KIM(potential_id)
         elif platform =='ase':
             from ase.calculators.eam import EAM
+            potential_id = kwargs.get("potential_id")
             calculator = EAM(potential=potential_id)
         elif platform == 'matlantis':
             from pfp_api_client.pfp.calculators.ase_calculator import \
@@ -128,11 +128,16 @@ class Environment:
         elif platform == "uma":
             from fairchem.core import FAIRChemCalculator, pretrained_mlip
             from fairchem.core.units.mlip_unit import load_predict_unit
-            
-            try:
-                predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device="cuda")
-            except:
-                predictor = load_predict_unit(kwargs.get("model_path"), "default", None, "cuda")
+            model_path = kwargs.get("model_path", None)
+            if model_path is not None:
+                if not os.path.isfile(model_path) or not os.access(model_path, os.R_OK):
+                    raise ValueError(f"Invalid model_path (not a readable file): {model_path}")
+                predictor = load_predict_unit(kwargs.get("model_path"), "default", None, device)
+            else:
+                try:
+                    predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device=device)
+                except Exception as e:
+                    raise RuntimeError(f"Failed to load pretrained model on {device}: {e}")
             calculator = FAIRChemCalculator(predictor, task_name="omat")
         else:
             raise 'Error: platform should be set as either matlantis or kimpy'
