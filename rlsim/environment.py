@@ -132,7 +132,7 @@ class Environment:
             if model_path is not None:
                 if not os.path.isfile(model_path) or not os.access(model_path, os.R_OK):
                     raise ValueError(f"Invalid model_path (not a readable file): {model_path}")
-                predictor = load_predict_unit(kwargs.get("model_path"), "default", None, device)
+                predictor = load_predict_unit(kwargs.get("model_path"), "default", None, "cuda")
             else:
                 try:
                     predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device=device)
