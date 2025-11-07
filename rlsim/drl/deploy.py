@@ -33,6 +33,8 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     sro_pixel_length = deploy_config.pop("sro_pixel_length", None)
     if sro_pixel0 is not None and sro_pixel1 is not None and sro_pixel2 is not None and sro_pixel_length is not None:
         sro_pixel = (sro_pixel0, sro_pixel1, sro_pixel2, sro_pixel_length)
+    elif sro_pixel0 is not None and sro_pixel_length is not None:
+        sro_pixel = (sro_pixel0, sro_pixel_length)
     else:
         sro_pixel = None
 

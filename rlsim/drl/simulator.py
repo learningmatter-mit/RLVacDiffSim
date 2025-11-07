@@ -28,7 +28,7 @@ class RLSimulator:
                  environment: Environment,
                  model=None,
                  q_params: Dict[str, float | bool] | None = {"alpha": 0.0, "beta": 0.5, "dqn": True},
-                 sro_pixel: Tuple[float, float, float, float] | None = None):
+                 sro_pixel: Tuple[float, float, float, float] | Tuple[float, float] | None = None):
         self.env = environment
         self.calculator = self.env.get_calculator(**self.env.calc_params)
         if model is not None:
@@ -63,12 +63,20 @@ class RLSimulator:
                 sro = get_sro_from_atoms(atoms)
                 pos[action[0]] -= np.array(action[1:])*1/0.8
                 diagonal_sro = np.diag(sro)
-                x0, y0, z0, L = self.sro_pixel
-                Cr_condition = diagonal_sro[0] > x0-L/2 and diagonal_sro[0] < x0+L/2
-                Co_condition = diagonal_sro[1] > y0-L/2 and diagonal_sro[1] < y0+L/2
-                Ni_condition = diagonal_sro[2] > z0-L/2 and diagonal_sro[2] < z0+L/2
-                if Cr_condition and Co_condition and Ni_condition:
-                    valid_actions.append(i)
+                if len(self.sro_pixel) == 4:
+                    x0, y0, z0, L = self.sro_pixel
+                    Cr_condition = diagonal_sro[0] > x0-L/2 and diagonal_sro[0] < x0+L/2
+                    Co_condition = diagonal_sro[1] > y0-L/2 and diagonal_sro[1] < y0+L/2
+                    Ni_condition = diagonal_sro[2] > z0-L/2 and diagonal_sro[2] < z0+L/2
+                    if Cr_condition and Co_condition and Ni_condition:
+                        valid_actions.append(i)
+                elif len(self.sro_pixel) == 2:
+                    x0, L = self.sro_pixel
+                    lower_bound = x0-L/2
+                    upper_bound = x0+L/2
+                    scalar_sro = np.sqrt(np.sum(sro[0, :]**2) + np.sum(sro[1, 1:]**2) + sro[2, 2]**2)
+                    if scalar_sro > lower_bound and scalar_sro < upper_bound:
+                        valid_actions.append(i)
       
             valid_actions = torch.tensor(valid_actions, device=self.device)
             Q = Q[valid_actions]
