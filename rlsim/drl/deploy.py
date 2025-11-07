@@ -27,12 +27,14 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     simulation_mode = deploy_config.pop("mode")
     simulation_params = deploy_config.pop("simulation_params")
 
-    sro_lower_bound = deploy_config.pop("sro_lower_bound", None)
-    sro_upper_bound = deploy_config.pop("sro_upper_bound", None)
-    if sro_lower_bound is not None and sro_upper_bound is not None:
-        sro_interval = [sro_lower_bound, sro_upper_bound]
+    sro_pixel0 = deploy_config.pop("sro_pixel0", None)
+    sro_pixel1 = deploy_config.pop("sro_pixel1", None)
+    sro_pixel2 = deploy_config.pop("sro_pixel2", None)
+    sro_pixel_length = deploy_config.pop("sro_pixel_length", None)
+    if sro_pixel0 is not None and sro_pixel1 is not None and sro_pixel2 is not None and sro_pixel_length is not None:
+        sro_pixel = (sro_pixel0, sro_pixel1, sro_pixel2, sro_pixel_length)
     else:
-        sro_interval = None
+        sro_pixel = None
 
     if atoms_traj is not None:
         pool = atoms_traj
@@ -69,7 +71,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         simulator = RLSimulator(environment=env,
                                 model=model,
                                 q_params=model_params,
-                                sro_interval=sro_interval)
+                                sro_pixel=sro_pixel)
         atoms_traj = str(task) + "/XDATCAR" + str(u)
         outputs = simulator.run(horizon=horizon,
                                 logger=logger,
