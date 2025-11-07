@@ -48,6 +48,8 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     else:
         n_episodes = deploy_config.pop("n_episodes")
         logger.info(f"Running {n_episodes} (Random) episodes in {simulation_mode} mode")
+    if sro_pixel is not None:
+        logger.info(f"Running with SRO pixel constraint: {sro_pixel}")
 
     # if simulation_mode == "lss" or simulation_mode == "mcmc":
     El = []
