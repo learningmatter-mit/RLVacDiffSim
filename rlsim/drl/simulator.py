@@ -1,7 +1,7 @@
 import random
 from contextlib import redirect_stdout
 from io import StringIO
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import ase
 import numpy as np
@@ -28,7 +28,7 @@ class RLSimulator:
                  environment: Environment,
                  model=None,
                  q_params: Dict[str, float | bool] | None = {"alpha": 0.0, "beta": 0.5, "dqn": True},
-                 sro_interval=None):
+                 sro_pixel: Tuple[float, float, float, float] | None = None):
         self.env = environment
         self.calculator = self.env.get_calculator(**self.env.calc_params)
         if model is not None:
@@ -36,7 +36,7 @@ class RLSimulator:
             self.q_params = q_params
         self.device = self.env.calc_params["device"]
         self.kb = 8.617*10**-5
-        self.sro_interval = sro_interval
+        self.sro_pixel = sro_pixel
 
     def select_action(self, action_space, temperature):
         self.update_q_params(**{"temperature": temperature})
@@ -53,7 +53,7 @@ class RLSimulator:
                 total_q_list.append(rl_q.detach())
         Q = torch.concat(total_q_list, dim=-1)
 
-        if self.sro_interval is not None:
+        if self.sro_pixel is not None:
             valid_actions = []
             atoms = self.env.atoms.copy()
             pos = atoms.get_positions()
@@ -62,9 +62,14 @@ class RLSimulator:
                 atoms.set_positions(pos)
                 sro = get_sro_from_atoms(atoms)
                 pos[action[0]] -= np.array(action[1:])*1/0.8
-                scalar_sro = np.sqrt(np.sum(sro[0, :]**2) + np.sum(sro[1, 1:]**2) + sro[2, 2]**2)
-                if scalar_sro > self.sro_interval[0] and scalar_sro < self.sro_interval[1]:
+                diagonal_sro = np.diag(sro)
+                x0, y0, z0, L = self.sro_pixel
+                Cr_condition = diagonal_sro[0] > x0-L/2 and diagonal_sro[0] < x0+L/2
+                Co_condition = diagonal_sro[1] > y0-L/2 and diagonal_sro[1] < y0+L/2
+                Ni_condition = diagonal_sro[2] > z0-L/2 and diagonal_sro[2] < z0+L/2
+                if Cr_condition and Co_condition and Ni_condition:
                     valid_actions.append(i)
+      
             valid_actions = torch.tensor(valid_actions, device=self.device)
             Q = Q[valid_actions]
         
@@ -74,7 +79,7 @@ class RLSimulator:
             p=action_probs.detach().cpu().numpy(),
         )
 
-        if self.sro_interval is not None:
+        if self.sro_pixel is not None:
             action = valid_actions[action]
 
         return action, action_probs, Q
