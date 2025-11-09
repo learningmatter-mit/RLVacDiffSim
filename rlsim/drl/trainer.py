@@ -118,6 +118,10 @@ class Trainer:
 
     def dqn_update(self, memory_l, gamma, episode_size, num_epoch, batch_size=8, device="cuda"):
         self.target_net.load_state_dict(self.policy_value_net.state_dict())
+        self.target_net.eval()
+        self.target_net.to(device)
+        self.policy_value_net.train()
+        self.policy_value_net.to(device)
         losses = AverageMeter()
         prob = [0.99 ** (len(memory_l) - i) for i in range(len(memory_l))]
         randint = np.random.choice(range(len(memory_l)),size=episode_size, p=prob / np.sum(prob))
@@ -156,7 +160,6 @@ class Trainer:
         q_dataloader = DataLoader(
             dataset, batch_size=batch_size, shuffle=False
         )
-        self.policy_value_net.train()
         for _ in range(num_epoch):
             for batch in q_dataloader:
                 batch = batch_to(batch, device)
