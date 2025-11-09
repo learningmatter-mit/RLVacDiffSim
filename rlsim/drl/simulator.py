@@ -31,9 +31,8 @@ class RLSimulator:
                  sro_pixel: Tuple[float, float, float, float] | Tuple[float, float] | None = None):
         self.env = environment
         self.calculator = self.env.get_calculator(**self.env.calc_params)
-        if model is not None:
-            self.model = model
-            self.q_params = q_params
+        self.q_params = q_params
+        self.model = model
         self.device = self.env.calc_params["device"]
         self.kb = 8.617*10**-5
         self.sro_pixel = sro_pixel

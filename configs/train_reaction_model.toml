@@ -1,0 +1,25 @@
+task = "train_reaction_model"
+[logger]
+filename = "logger"
+name = "TRAIN"
+
+[model]
+"@name" = "painn" 
+species = ["Cr", "Co", "Ni"]
+
+[train]
+batch_size = 32 
+val_size = 0.2
+device = "cuda"
+train_labels = ["barrier", "freq", "delta_e"]
+num_epoch = 101 
+lr = 1e-5 
+save_model_name = "reaction_model.pth.tar"
+trainset_path = "/path/to/trainset"
+testset_path = "/path/to/testset"
+loss_fn = "weighted_sum_loss"
+[train.loss_fn]
+keys= ["barrier", "freq", "delta_e"]
+weights = [1.0, 1.0, 0.1]
+loss_fns = ["mse_loss", "mse_loss", "mse_loss"]
+

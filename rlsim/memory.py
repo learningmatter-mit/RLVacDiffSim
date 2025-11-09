@@ -6,6 +6,7 @@ Created on Mon Sep 26 10:10:21 2022
 """
 
 import json
+import os
 
 import ase
 import numpy as np
@@ -108,7 +109,7 @@ class Memory:
             json.dump(to_list, file)
 
     def load(self, filename):
-        with open(filename + ".json", "r") as file:
+        with open(filename, "r") as file:
             data = json.load(file)
         [
             self.alpha,
@@ -131,3 +132,52 @@ class Memory:
         for i in range(len(self.actions)):
             self.states.append(ase.Atoms.fromdict(states[i]))
             self.next_states.append(ase.Atoms.fromdict(next_states[i]))
+
+
+
+def load_data(dataset='training', folder="../data/Vrandom_mace", run_n = 5, traj_n= 100):
+    
+    traj = Memory(alpha=1, beta=0)
+    
+    for i in range(traj_n):
+        
+        if dataset == 'training':
+            criterion = (i%3 <= 1)
+        elif dataset == 'testing':
+            criterion = (i%3 > 1)
+        else:
+            raise('dataset must be either training or testing')
+        traj_file = f'{folder}/traj/traj'+str(i)+'.json'
+        if not os.path.exists(traj_file):
+            raise FileNotFoundError(f'File {traj_file} not found')
+
+        if criterion:
+            traj_list = Memory(alpha=1, beta=0)
+            traj_list.load(traj_file)
+            traj.rewards += traj_list.rewards[:-1]
+            traj.states  += traj_list.states[:-1]
+            traj.next_states += traj_list.next_states[:-1]
+            traj.act_space += traj_list.act_space[:-1]
+            traj.actions += traj_list.actions[:-1]
+            traj.freq += traj_list.freq[:-1]
+            traj.E_min += traj_list.E_min[:-1]
+            traj.E_next += traj_list.E_next[:-1]
+            traj.E_s += traj_list.E_s[:-1]
+
+    nframes = len(traj.rewards)
+    for u in range(nframes):
+        
+        v = nframes - u - 1
+        if(traj.freq[v] <= 0 or traj.rewards[v]< -5 or np.abs(traj.E_next[v]- traj.E_min[v]) > 3 or np.isnan(traj.freq[v]) or np.isnan(traj.rewards[v])):
+            del traj.freq[v]
+            del traj.rewards[v]
+            del traj.states[v]
+            del traj.next_states[v]
+            del traj.act_space[v]
+            del traj.actions[v]
+            del traj.E_min[v]
+            del traj.E_next[v]
+            del traj.E_s[v]
+    
+    return traj
+
