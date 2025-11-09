@@ -37,12 +37,14 @@ def train_DQN(task, logger, config):
     horizon = train_config.pop("horizon")
     train_mode = train_config.pop("mode")
 
-    # new_pool = []
-    poscar_dir = train_config.pop("poscar_dir")
-    n_poscars = train_config.pop("n_poscars")
-    pool = []
-    for directory, n_files in zip(poscar_dir, n_poscars):
-        pool += [f"{directory}/POSCAR_" + str(i) for i in range(0, n_files)]
+    if train_config.get("atoms_list", None) is not None:
+        pool = train_config.pop("atoms_list")
+    else:
+        poscar_dir = train_config.pop("poscar_dir")
+        n_poscars = train_config.pop("n_poscars")
+        pool = []
+        for directory, n_files in zip(poscar_dir, n_poscars):
+            pool += [f"{directory}/POSCAR_" + str(i) for i in range(0, n_files)]
 
     gcnn = registry.get_reaction_model_class(model_config["reaction_model"]["@name"]).load(model_config["reaction_model"]["model_path"])
 
