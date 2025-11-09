@@ -57,10 +57,12 @@ class RLSimulator:
             valid_actions = []
             atoms = self.env.atoms.copy()
             pos = atoms.get_positions()
+            sro_list = []
             for i, action in enumerate(action_space):
                 pos[action[0]] += np.array(action[1:])*1/0.8
                 atoms.set_positions(pos)
                 sro = get_sro_from_atoms(atoms)
+                sro_list.append(sro)
                 pos[action[0]] -= np.array(action[1:])*1/0.8
                 diagonal_sro = np.diag(sro)
                 if len(self.sro_pixel) == 4:
@@ -80,6 +82,10 @@ class RLSimulator:
       
             valid_actions = torch.tensor(valid_actions, device=self.device)
             Q = Q[valid_actions]
+            sro_list = torch.tensor(sro_list, device=self.device)
+            sro_list = sro_list[valid_actions]
+        else:
+            sro_list = None
         
         action_probs = nn.Softmax(dim=0)(Q/(temperature*self.kb))
         action = np.random.choice(
@@ -90,7 +96,7 @@ class RLSimulator:
         if self.sro_pixel is not None:
             action = valid_actions[action]
 
-        return action, action_probs, Q
+        return action, action_probs, Q, sro_list
 
     def step(self, temperature=None, random=False):
         action_space = get_action_space(self.env)
@@ -98,7 +104,7 @@ class RLSimulator:
             act_id = np.random.choice(len(action_space))
             act_probs = np.array([])
         elif not random and temperature is not None:
-            act_id, act_probs, _ = self.select_action(action_space, temperature)
+            act_id, act_probs, _, _ = self.select_action(action_space, temperature)
         else:
             raise ValueError("Temperature must be provided if random is False")
         action = action_space[act_id]
@@ -155,26 +161,28 @@ class RLSimulator:
                                            T_end=simulation_params["T_end"])
         Elist = [self.env.potential()]
         Qlist = [[]]
+        SROlist = [[]]
         for tstep in range(horizon):
             if simulation_params.get("annealing_time", None) is not None:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
             else:
                 new_T = simulation_params["temperature"]
             action_space = get_action_space(self.env)
-            act_id, _, Q = self.select_action(action_space, new_T)
+            act_id, _, Q, sro_list = self.select_action(action_space, new_T)
             action = action_space[act_id]
             _, _ = self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
             energy = self.env.potential()
             Elist.append(energy)
             Qlist.append(Q.tolist())
+            SROlist.append(sro_list.tolist())
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {new_T:.0f}, E: {energy:.3f}"
                 )
         last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
-        return (Elist, Qlist)
+        return (Elist, Qlist, SROlist)
 
     def run_TKS(self, horizon, atoms_traj, logger, **simulation_params):
         tlist = [0]
@@ -183,9 +191,10 @@ class RLSimulator:
         kT = temperature * 8.617 * 10**-5
         Elist = [self.env.potential()]
         Qlist = [[]]
+        SROlist = [[]]
         for tstep in range(horizon):
             action_space = get_action_space(self.env)
-            act_id, _, Q = self.select_action(action_space, temperature)
+            act_id, _, Q, sro_list = self.select_action(action_space, temperature)
             action = action_space[act_id]
             _, _ = self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
@@ -195,6 +204,7 @@ class RLSimulator:
             Elist.append(energy)
             tlist.append(tlist[-1] + dt)
             Qlist.append(Q.tolist())
+            SROlist.append(sro_list.tolist())
             clist.append(self.env.atoms.get_positions()[-1].tolist())
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
@@ -202,7 +212,7 @@ class RLSimulator:
                 )
         last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
-        return (Elist, Qlist, tlist, clist)
+        return (Elist, Qlist, SROlist, tlist, clist)
     
     def run_MCMC(self, horizon, atoms_traj, logger, **simulation_params):
         logger.info(f"Action mode: {simulation_params.get('action_mode', 'vacancy_only')}")
@@ -245,6 +255,34 @@ class RLSimulator:
         base_prob = 0.0
         kT = temperature * 8.617 * 10**-5
         action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
+        if self.sro_pixel is not None:
+            valid_actions = []
+            atoms = self.env.atoms.copy()
+            pos = atoms.get_positions()
+            for i, action in enumerate(action_space):
+                pos[action[0]] += np.array(action[1:])*1/0.8
+                atoms.set_positions(pos)
+                sro = get_sro_from_atoms(atoms)
+                pos[action[0]] -= np.array(action[1:])*1/0.8
+                diagonal_sro = np.diag(sro)
+                if len(self.sro_pixel) == 4:
+                    x0, y0, z0, L = self.sro_pixel
+                    Cr_condition = diagonal_sro[0] > x0-L/2 and diagonal_sro[0] < x0+L/2
+                    Co_condition = diagonal_sro[1] > y0-L/2 and diagonal_sro[1] < y0+L/2
+                    Ni_condition = diagonal_sro[2] > z0-L/2 and diagonal_sro[2] < z0+L/2
+                    if Cr_condition and Co_condition and Ni_condition:
+                        valid_actions.append(i)
+                elif len(self.sro_pixel) == 2:
+                    x0, L = self.sro_pixel
+                    lower_bound = x0-L/2
+                    upper_bound = x0+L/2
+                    scalar_sro = np.sqrt(np.sum(sro[0, :]**2) + np.sum(sro[1, 1:]**2) + sro[2, 2]**2)
+                    if scalar_sro > lower_bound and scalar_sro < upper_bound:
+                        valid_actions.append(i)
+      
+            valid_actions = torch.tensor(valid_actions, device=self.device)
+            action_space = [action_space[i] for i in valid_actions]
+
         action = random.choice(action_space)
         E_prev = self.env.potential()
         E_next, fail = self.env.step(action)

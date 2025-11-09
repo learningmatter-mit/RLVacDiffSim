@@ -59,6 +59,9 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     if simulation_mode != "mcmc":
         Ql = []
         output_file_q = str(task) + "/q_values.json"
+        if sro_pixel is not None:
+            SROl = []
+            output_file_sro = str(task) + "/sro_values.json"
     if simulation_mode == "tks":
         Tl = []
         Cl = []
@@ -89,8 +92,12 @@ def deploy_RL(task, logger, config, atoms_traj=None):
             Ql.append(outputs[1])
             with open(output_file_q, "w") as file:
                 json.dump(Ql, file)
+            if sro_pixel is not None:
+                SROl.append(outputs[2])
+                with open(output_file_sro, "w") as file:
+                    json.dump(SROl, file)
         if simulation_mode == "tks":
-            Tl.append(outputs[2])
-            Cl.append(outputs[3])
+            Tl.append(outputs[3])
+            Cl.append(outputs[4])
             with open(output_file_tks, "w") as file:
                 json.dump([Tl, Cl], file)
