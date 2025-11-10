@@ -259,10 +259,17 @@ class RLSimulator:
             atoms = self.env.atoms.copy()
             pos = atoms.get_positions()
             for i, action in enumerate(action_space):
-                pos[action[0]] += np.array(action[1:])*1/0.8
-                atoms.set_positions(pos)
-                sro = get_sro_from_atoms(atoms)
-                pos[action[0]] -= np.array(action[1:])*1/0.8
+                if(len(action)==4):
+                    pos[action[0]] += np.array(action[1:])*1/0.8
+                    atoms.set_positions(pos)
+                    sro = get_sro_from_atoms(atoms)
+                    pos[action[0]] -= np.array(action[1:])*1/0.8
+                else:
+                    pos[action[0]], pos[action[1]] = pos[action[1]], pos[action[0]];
+                    atoms.set_positions(pos)
+                    sro = get_sro_from_atoms(atoms)
+                    pos[action[0]], pos[action[1]] = pos[action[1]], pos[action[0]];
+                
                 diagonal_sro = np.diag(sro)
                 if len(self.sro_pixel) == 4:
                     x0, y0, z0, L = self.sro_pixel
