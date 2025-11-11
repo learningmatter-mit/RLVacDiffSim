@@ -77,11 +77,14 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528, action_mode=
         test = config.atoms.copy()
         pos_test = test.get_positions()
         symbols_test = test.get_chemical_symbols()
-        new_site = pos_test[i] + vec
+        pos_test[i] += vec
+        test.set_positions(pos_test)
+        distnaces = test.get_distances(i, range(len(test)), mic=True)
         swap_sites = []
-        for j, pos in enumerate(pos_test):
-            if np.linalg.norm(pos - new_site) < 0.8 and symbols_test[j] != symbols_test[i]:
+        for j, dist in enumerate(distnaces):
+            if dist < 0.8 and symbols_test[j] != symbols_test[i]:
                 swap_sites.append(j)
+
         return swap_sites
 
     acts = np.array([[1, 1, 0],
@@ -113,7 +116,7 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528, action_mode=
                 for site in swap_sites:
                     actions.append([index]+[site])
         return actions
-    else:
+    elif action_mode == "all":
         while not actions:
             index = np.random.choice(np.concatenate([vacancy_l, filled_l]))
             if index in vacancy_l:
@@ -121,9 +124,15 @@ def get_action_space_mcmc(config, lattice_parameter: float = 3.528, action_mode=
                     vacant = test(index, vec)
                     if vacant:
                         actions.append([index]+vec.tolist())
+                    else:
+                        swap_sites = test_filled(index, vec)
+                        for site in swap_sites:
+                            actions.append([index]+[site])
             elif index in filled_l:
                 for vec in acts:
                     swap_sites = test_filled(index, vec)
                     for site in swap_sites:
                         actions.append([index]+[site])
-        return actions
+            return actions
+        else:
+            raise ValueError(f"Invalid action mode: {action_mode}")

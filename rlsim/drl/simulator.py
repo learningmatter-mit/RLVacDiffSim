@@ -221,6 +221,9 @@ class RLSimulator:
                                            T_start=simulation_params["T_start"],
                                            T_end=simulation_params["T_end"])
         Elist = [self.env.potential()]
+        atoms = self.env.atoms.copy()
+        sro = get_sro_from_atoms(atoms)
+        SROlist = [sro]
         self.total_mcmc_step = 0
         for tstep in range(horizon):
             if simulation_params.get("annealing_time", None) is not None:
@@ -229,16 +232,19 @@ class RLSimulator:
                 new_T = simulation_params["temperature"]
             n_sweeps = simulation_params.get("n_sweeps", 1)
             energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T, action_mode=simulation_params.get("action_mode", "vacancy_only"))
+            atoms = self.env.atoms.copy()
+            sro = get_sro_from_atoms(atoms)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
 
             Elist.append(energy)
+            SROlist.append(sro)
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {energy:.3f} eV"
                 )
         last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
-        return (Elist,)
+        return (Elist, SROlist)
 
     def mcmc_sweep(self, n_sweeps, temperature, action_mode="vacancy_only"):
         accept = False
@@ -253,41 +259,44 @@ class RLSimulator:
         accept = False
         base_prob = 0.0
         kT = temperature * 8.617 * 10**-5
-        action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
-        if self.sro_pixel is not None:
-            valid_actions = []
-            atoms = self.env.atoms.copy()
-            pos = atoms.get_positions()
-            for i, action in enumerate(action_space):
-                if(len(action)==4):
-                    pos[action[0]] += np.array(action[1:])*1/0.8
-                    atoms.set_positions(pos)
-                    sro = get_sro_from_atoms(atoms)
-                    pos[action[0]] -= np.array(action[1:])*1/0.8
-                else:
-                    pos[action[0]], pos[action[1]] = pos[action[1]], pos[action[0]];
-                    atoms.set_positions(pos)
-                    sro = get_sro_from_atoms(atoms)
-                    pos[action[0]], pos[action[1]] = pos[action[1]], pos[action[0]];
-                
-                diagonal_sro = np.diag(sro)
-                if len(self.sro_pixel) == 4:
-                    x0, y0, z0, L = self.sro_pixel
-                    Cr_condition = diagonal_sro[0] > x0-L/2 and diagonal_sro[0] < x0+L/2
-                    Co_condition = diagonal_sro[1] > y0-L/2 and diagonal_sro[1] < y0+L/2
-                    Ni_condition = diagonal_sro[2] > z0-L/2 and diagonal_sro[2] < z0+L/2
-                    if Cr_condition and Co_condition and Ni_condition:
-                        valid_actions.append(i)
-                elif len(self.sro_pixel) == 2:
-                    x0, L = self.sro_pixel
-                    lower_bound = x0-L/2
-                    upper_bound = x0+L/2
-                    scalar_sro = np.sqrt(np.sum(sro[0, :]**2) + np.sum(sro[1, 1:]**2) + sro[2, 2]**2)
-                    if scalar_sro > lower_bound and scalar_sro < upper_bound:
-                        valid_actions.append(i)
-      
-            valid_actions = torch.tensor(valid_actions, device=self.device)
-            action_space = [action_space[i] for i in valid_actions]
+        action_space_lenght = 0
+        while action_space_lenght == 0:
+            action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
+            if self.sro_pixel is not None:
+                atoms = self.env.atoms.copy()
+                pos = atoms.get_positions()
+                valid_actions = []
+                for i, action in enumerate(action_space):
+                    if(len(action)==4):
+                        pos[action[0]] += np.array(action[1:])*1/0.8
+                        atoms.set_positions(pos)
+                        sro = get_sro_from_atoms(atoms)
+                        pos[action[0]] -= np.array(action[1:])*1/0.8
+                    else:
+                        pos[action[0]], pos[action[1]] = pos[action[1]], pos[action[0]];
+                        atoms.set_positions(pos)
+                        sro = get_sro_from_atoms(atoms)
+                        pos[action[0]], pos[action[1]] = pos[action[1]], pos[action[0]];
+                    
+                    if len(self.sro_pixel) == 4:
+                        diagonal_sro = np.diag(sro)
+                        x0, y0, z0, L = self.sro_pixel
+                        Cr_condition = diagonal_sro[0] > x0-L/2 and diagonal_sro[0] < x0+L/2
+                        Co_condition = diagonal_sro[1] > y0-L/2 and diagonal_sro[1] < y0+L/2
+                        Ni_condition = diagonal_sro[2] > z0-L/2 and diagonal_sro[2] < z0+L/2
+                        if Cr_condition and Co_condition and Ni_condition:
+                            valid_actions.append(i)
+                    elif len(self.sro_pixel) == 2:
+                        x0, L = self.sro_pixel
+                        lower_bound = x0-L/2
+                        upper_bound = x0+L/2
+                        scalar_sro = np.sqrt(np.sum(sro[0, :]**2) + np.sum(sro[1, 1:]**2) + sro[2, 2]**2)
+                        if scalar_sro > lower_bound and scalar_sro < upper_bound:
+                            valid_actions.append(i)
+        
+                # valid_actions = torch.tensor(valid_actions, device=self.device)
+                action_space = [action_space[i] for i in valid_actions]
+                action_space_lenght = len(action_space)
 
         action = random.choice(action_space)
         E_prev = self.env.potential()

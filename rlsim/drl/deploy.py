@@ -27,10 +27,10 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     simulation_mode = deploy_config.pop("mode")
     simulation_params = deploy_config.pop("simulation_params")
 
-    sro_pixel0 = deploy_config.pop("sro_pixel0", None)
-    sro_pixel1 = deploy_config.pop("sro_pixel1", None)
-    sro_pixel2 = deploy_config.pop("sro_pixel2", None)
-    sro_pixel_length = deploy_config.pop("sro_pixel_length", None)
+    sro_pixel0 = simulation_params.pop("sro_pixel0", None)
+    sro_pixel1 = simulation_params.pop("sro_pixel1", None)
+    sro_pixel2 = simulation_params.pop("sro_pixel2", None)
+    sro_pixel_length = simulation_params.pop("sro_pixel_length", None)
     if sro_pixel0 is not None and sro_pixel1 is not None and sro_pixel2 is not None and sro_pixel_length is not None:
         sro_pixel = (sro_pixel0, sro_pixel1, sro_pixel2, sro_pixel_length)
     elif sro_pixel0 is not None and sro_pixel_length is not None:
@@ -62,6 +62,9 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         if sro_pixel is not None:
             SROl = []
             output_file_sro = str(task) + "/sro_values.json"
+    if simulation_mode == "mcmc":
+        SROlist = []
+        output_file_sro_accepted = str(task) + "/SRO.json"
     if simulation_mode == "tks":
         Tl = []
         Cl = []
@@ -96,6 +99,10 @@ def deploy_RL(task, logger, config, atoms_traj=None):
                 SROl.append(outputs[2])
                 with open(output_file_sro, "w") as file:
                     json.dump(SROl, file)
+        if simulation_mode == "mcmc":
+            SROlist.append(outputs[1])
+            with open(output_file_sro_accepted, "w") as file:
+                json.dump(np.array(SROlist).tolist(), file)
         if simulation_mode == "tks":
             Tl.append(outputs[3])
             Cl.append(outputs[4])
