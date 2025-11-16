@@ -31,6 +31,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     sro_pixel1 = simulation_params.pop("sro_pixel1", None)
     sro_pixel2 = simulation_params.pop("sro_pixel2", None)
     sro_pixel_length = simulation_params.pop("sro_pixel_length", None)
+    save_sro = simulation_params.pop("save_sro", False)
     if sro_pixel0 is not None and sro_pixel1 is not None and sro_pixel2 is not None and sro_pixel_length is not None:
         sro_pixel = (sro_pixel0, sro_pixel1, sro_pixel2, sro_pixel_length)
     elif sro_pixel0 is not None and sro_pixel_length is not None:
@@ -60,8 +61,10 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         Ql = []
         output_file_q = str(task) + "/q_values.json"
         if sro_pixel is not None:
-            SROl = []
+            SRO_values_list = []
+            SROlist = []
             output_file_sro = str(task) + "/sro_values.json"
+            soutput_file_sro_chosen = str(task) + "/SRO.json"
     if simulation_mode == "mcmc":
         SROlist = []
         output_file_sro_accepted = str(task) + "/SRO.json"
@@ -96,15 +99,32 @@ def deploy_RL(task, logger, config, atoms_traj=None):
             with open(output_file_q, "w") as file:
                 json.dump(Ql, file)
             if sro_pixel is not None:
-                SROl.append(outputs[2])
+                SRO_values_list.append(outputs[2])
+                # Extract chosen SRO for each step
+                chosen_sro_episode = []
+                for t in range(len(outputs[2])):
+                    if outputs[3][t] is not None:
+                        # outputs[2][t] is the SRO list for all actions at step t
+                        # outputs[3][t][0] is the chosen action index at step t
+                        chosen_sro_episode.append(outputs[2][t][outputs[3][t]])
+                    else:
+                        # Initial state (empty) or sro_list was None
+                        chosen_sro_episode.append(outputs[2][t])
+                SROlist.append(chosen_sro_episode)
                 with open(output_file_sro, "w") as file:
-                    json.dump(SROl, file)
+                    json.dump(SRO_values_list, file)
+                with open(soutput_file_sro_chosen, "w") as file:
+                    json.dump(SROlist, file)
+            elif sro_pixel is None and save_sro:
+                SROlist.append(outputs[2])
+                with open(soutput_file_sro_chosen, "w") as file:
+                    json.dump(SROlist, file)
         if simulation_mode == "mcmc":
             SROlist.append(outputs[1])
             with open(output_file_sro_accepted, "w") as file:
                 json.dump(np.array(SROlist).tolist(), file)
         if simulation_mode == "tks":
-            Tl.append(outputs[3])
-            Cl.append(outputs[4])
+            Tl.append(outputs[4])
+            Cl.append(outputs[5])
             with open(output_file_tks, "w") as file:
                 json.dump([Tl, Cl], file)

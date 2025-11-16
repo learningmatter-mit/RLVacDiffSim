@@ -28,7 +28,9 @@ class RLSimulator:
                  environment: Environment,
                  model=None,
                  q_params: Dict[str, float | bool] | None = {"alpha": 0.0, "beta": 0.5, "dqn": True},
-                 sro_pixel: Tuple[float, float, float, float] | Tuple[float, float] | None = None):
+                 sro_pixel: Tuple[float, float, float, float] | Tuple[float, float] | None = None,
+                 save_sro: bool = False
+                 ):
         self.env = environment
         self.calculator = self.env.get_calculator(**self.env.calc_params)
         self.q_params = q_params
@@ -36,6 +38,7 @@ class RLSimulator:
         self.device = self.env.calc_params["device"]
         self.kb = 8.617*10**-5
         self.sro_pixel = sro_pixel
+        self.save_sro = save_sro
 
     def select_action(self, action_space, temperature):
         self.update_q_params(**{"temperature": temperature})
@@ -160,7 +163,11 @@ class RLSimulator:
                                            T_end=simulation_params["T_end"])
         Elist = [self.env.potential()]
         Qlist = [[]]
-        SROlist = [[]]
+        if self.sro_pixel is not None or self.save_sro:
+            SROlist = [get_sro_from_atoms(self.env.atoms.copy()).tolist()]
+        else:
+            SROlist = None
+        action_idx_list = [[]]
         for tstep in range(horizon):
             if simulation_params.get("annealing_time", None) is not None:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
@@ -174,14 +181,19 @@ class RLSimulator:
             energy = self.env.potential()
             Elist.append(energy)
             Qlist.append(Q.tolist())
-            SROlist.append(sro_list.tolist())
+            if self.sro_pixel is not None:
+                SROlist.append(sro_list.detach().cpu().numpy().tolist())
+            elif self.save_sro:
+                SROlist.append(get_sro_from_atoms(self.env.atoms.copy()).tolist())
+
+            action_idx_list.append(act_id.detach().item())
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {new_T:.0f}, E: {energy:.3f}"
                 )
         last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
-        return (Elist, Qlist, SROlist)
+        return (Elist, Qlist, SROlist, action_idx_list)
 
     def run_TKS(self, horizon, atoms_traj, logger, **simulation_params):
         tlist = [0]
@@ -190,7 +202,11 @@ class RLSimulator:
         kT = temperature * 8.617 * 10**-5
         Elist = [self.env.potential()]
         Qlist = [[]]
-        SROlist = [[]]
+        if self.sro_pixel is not None or self.save_sro:
+            SROlist = [get_sro_from_atoms(self.env.atoms.copy()).tolist()]
+        else:
+            SROlist = None
+        action_idx_list = [None]
         for tstep in range(horizon):
             action_space = get_action_space(self.env)
             act_id, _, Q, sro_list = self.select_action(action_space, temperature)
@@ -203,15 +219,19 @@ class RLSimulator:
             Elist.append(energy)
             tlist.append(tlist[-1] + dt)
             Qlist.append(Q.tolist())
-            SROlist.append(sro_list.tolist())
+            if self.sro_pixel is not None:
+                SROlist.append(sro_list.detach().cpu().numpy().tolist())
+            elif self.save_sro:
+                SROlist.append(get_sro_from_atoms(self.env.atoms.copy()).tolist())
             clist.append(self.env.atoms.get_positions()[-1].tolist())
+            action_idx_list.append(act_id.detach().item())
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {temperature:.0f}, E: {self.env.potential():.3f}"
                 )
         last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
-        return (Elist, Qlist, SROlist, tlist, clist)
+        return (Elist, Qlist, SROlist, action_idx_list, tlist, clist)
     
     def run_MCMC(self, horizon, atoms_traj, logger, **simulation_params):
         logger.info(f"Action mode: {simulation_params.get('action_mode', 'vacancy_only')}")
@@ -221,9 +241,12 @@ class RLSimulator:
                                            T_start=simulation_params["T_start"],
                                            T_end=simulation_params["T_end"])
         Elist = [self.env.potential()]
-        atoms = self.env.atoms.copy()
-        sro = get_sro_from_atoms(atoms)
-        SROlist = [sro]
+        if self.save_sro or self.sro_pixel is not None:
+            atoms = self.env.atoms.copy()
+            sro = get_sro_from_atoms(atoms)
+            SROlist = [sro.tolist()]
+        else:
+            SROlist = None
         self.total_mcmc_step = 0
         for tstep in range(horizon):
             if simulation_params.get("annealing_time", None) is not None:
@@ -232,12 +255,13 @@ class RLSimulator:
                 new_T = simulation_params["temperature"]
             n_sweeps = simulation_params.get("n_sweeps", 1)
             energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T, action_mode=simulation_params.get("action_mode", "vacancy_only"))
-            atoms = self.env.atoms.copy()
-            sro = get_sro_from_atoms(atoms)
+            if self.save_sro or self.sro_pixel is not None:
+                atoms = self.env.atoms.copy()
+                sro = get_sro_from_atoms(atoms)
+                SROlist.append(sro.tolist())
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
 
             Elist.append(energy)
-            SROlist.append(sro)
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {energy:.3f} eV"
