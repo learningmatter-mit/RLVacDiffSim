@@ -106,11 +106,11 @@ class Environment:
                         "Model download failed and no local model found"
                     )
 
-            model_path = get_mace_mp_model_path(model=kwargs.get("model", "medium"), model_path=kwargs.get("model_path", ""))
+            model_path = get_mace_mp_model_path(model=kwargs.get("model", "medium"), model_path=kwargs.pop("model_path", None))
             # Suppress print statements in mace_mp function
             with suppress_print(out=True, err=False):
                 calculator = MACECalculator(
-                    model_paths=model_path, device=device, default_dtype=kwargs.get("default_type", "float32"), **kwargs
+                    model_paths=model_path, device=device, default_dtype=kwargs.get("default_type", "float32")
                     )
                 
         elif platform == 'kimpy':
