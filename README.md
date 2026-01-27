@@ -49,7 +49,20 @@ pip install -e ".[dev]" # For developer version
 ```
 
 ## Demo
-
+Here we provide a demo task to run the Deep RL low-energy states sampling (LSS), calling our pre-trained RL model and the MACE-MP-0 interatomic potential. The task is running on the equiatomic CrCoNi alloy. The following commands are a minimal example to launch the calculation:
+```bash
+cd demo
+wget https://github.com/ACEsuit/mace-foundations/releases/download/mace_mp_0/2023-12-03-mace-128-L1_epoch-199.model
+rlsim rl-deploy -c config.toml
+```
+The expected command line output is shown below, expected to be completed in a couple of minutes:
+```
+INFO:Deploy:Step: 0, T: 1200, E: -1595.165
+INFO:Deploy:Step: 10, T: 700, E: -1595.011
+INFO:Deploy:Step: 19, T: 700, E: -1595.216
+INFO:Deploy:Simulation finished.
+```
+The output files of simulation trajectory and energies (at energy local minimums at each timestep) are in "demo/test_run_lss/XDATCAR0" and "demo/test_run_lss/converge.json", respectively.
 
 ## Instructions for Use
 We provide scripts in command line interface (CLI).
