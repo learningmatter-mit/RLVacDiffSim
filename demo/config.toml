@@ -30,3 +30,4 @@ max_iter = 10
 platform = "mace"
 relax_accuracy = 0.01
 relax_log = "relax.log"
+model_path = "2023-12-03-mace-128-L1_epoch-199.model"
