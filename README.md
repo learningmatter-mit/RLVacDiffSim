@@ -1,6 +1,9 @@
 # RLVacDiffSim
 Reinforcement Learning driven simulation of vacancy diffusion
 
+# System requirements
+
+# Installation guide
 ## Create conda envrionment
 
 ```bash
@@ -23,6 +26,13 @@ pip install torch_geometric
 
 ```
 
+## Install reaction graph neural network
+```bash
+git clone https://github.com/learningmatter-mit/ReactionGraphNeuralNetwork
+cd ReactionGraphNeuralNetwork
+pip install -e .
+cd ../
+```
 ## Install the package
 
 ```bash
@@ -30,7 +40,10 @@ pip install -e .
 pip install -e ".[dev]" # For developer version
 ```
 
-## Usage
+# Demo
+
+
+# Instructions for Use
 We provide scripts in command line interface (CLI).
 Trained models and initial poscars (256 atoms with mono vacancy) are saved in figshare [TBD]
 
