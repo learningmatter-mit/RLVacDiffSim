@@ -1,0 +1,33 @@
+task = "test_run_lss"
+[logger]
+filename = "deploy"
+name = "Deploy"
+
+[model]
+"@name" = "dqn_v2" 
+model_path = "../data/model_trained" # Change this to the path where your model is stored.'
+[model.params]
+alpha = 0.0
+beta = 1.0
+dqn = true
+
+[deploy]
+horizon = 20 
+mode = "lss" 
+n_episodes = 1
+n_poscars = 1 
+poscar_dir = "poscars" # Change this to the directory where your POSCAR files are stored.
+
+[deploy.simulation_params]
+T_end = 700
+T_start = 1200
+annealing_time = 10
+
+[deploy.calc_info]
+cutoff = 4.0
+device = "cuda"
+max_iter = 10
+platform = "mace"
+relax_accuracy = 0.01
+relax_log = "relax.log"
+model_path = "2023-12-03-mace-128-L1_epoch-199.model"
