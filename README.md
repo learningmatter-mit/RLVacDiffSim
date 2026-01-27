@@ -1,10 +1,18 @@
 # RLVacDiffSim
 Reinforcement Learning driven simulation of vacancy diffusion
 
-# System requirements
+## System requirements
+The package works in Linux systems. The versions of dependent packages the software has been tested on are listed below:
 
-# Installation guide
-## Create conda envrionment
+python==3.10.13 numpy=1.26.4 scipy==1.15.3 matplotlib==3.8.2 torch==2.2.0 torch_cluster==1.6.3 torch_scatter==2.1.2 e3nn==0.4.4 
+torch_geometric==2.7.0, torch_sparse==0.6.18, torch_spline_conv==1.2.2
+
+cuda version: 12.1
+
+Note that in most cases, different version of packages should also work. We list exactly the versions in our calculations in case version inconsistency issue occurs. If users intend to run the program on a cpu device, the cuda package is not needed.
+
+## Installation guide
+### Create conda envrionment
 
 ```bash
 conda update conda
@@ -14,7 +22,7 @@ conda env create -f environment.yml
 conda activate rlsim-env
 ```
 
-## Install `pytroch`, `torch_geometric` right cuda version
+### Install `pytroch`, `torch_geometric` right cuda version
 
 - below example is for pytorch version 2.2.0 with cuda version 12.1
 
@@ -26,24 +34,24 @@ pip install torch_geometric
 
 ```
 
-## Install reaction graph neural network
+### Install reaction graph neural network
 ```bash
 git clone https://github.com/learningmatter-mit/ReactionGraphNeuralNetwork
 cd ReactionGraphNeuralNetwork
 pip install -e .
 cd ../
 ```
-## Install the package
+### Install the package
 
 ```bash
 pip install -e .
 pip install -e ".[dev]" # For developer version
 ```
 
-# Demo
+## Demo
 
 
-# Instructions for Use
+## Instructions for Use
 We provide scripts in command line interface (CLI).
 Trained models and initial poscars (256 atoms with mono vacancy) are saved in figshare [TBD]
 
