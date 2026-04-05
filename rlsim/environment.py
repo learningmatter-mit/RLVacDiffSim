@@ -106,7 +106,7 @@ class Environment:
                         "Model download failed and no local model found"
                     )
 
-            model_path = get_mace_mp_model_path(model=kwargs.get("model", "medium"), model_path=kwargs.pop("model_path", None))
+            model_path = get_mace_mp_model_path(model=kwargs.get("model", "medium"), model_path=kwargs.pop("model_path", ""))
             # Suppress print statements in mace_mp function
             with suppress_print(out=True, err=False):
                 calculator = MACECalculator(
