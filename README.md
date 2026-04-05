@@ -34,13 +34,6 @@ pip install torch_geometric
 
 ```
 
-### Install reaction graph neural network
-```bash
-git clone https://github.com/learningmatter-mit/ReactionGraphNeuralNetwork
-cd ReactionGraphNeuralNetwork
-pip install -e .
-cd ../
-```
 ### Install the package
 
 ```bash

@@ -8,7 +8,7 @@ dependencies = [
   "numpy>=1.22.4",
   "scipy>=1.7.1",
   "matplotlib>=3.4.3",
-  "ase>=3.22.1",
+  "ase==3.23.0",
   "torch>=1.11.0",
   "networkx>=2.7.1",
   "pymatgen>=2022.5.26",
