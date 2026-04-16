@@ -29,7 +29,8 @@ class RLSimulator:
                  model=None,
                  q_params: Dict[str, float | bool] | None = {"alpha": 0.0, "beta": 0.5, "dqn": True},
                  sro_pixel: Tuple[float, float, float, float] | Tuple[float, float] | None = None,
-                 save_sro: bool = False
+                 save_sro: bool = False,
+                 **kwargs
                  ):
         self.env = environment
         self.calculator = self.env.get_calculator(**self.env.calc_params)
@@ -39,6 +40,7 @@ class RLSimulator:
         self.kb = 8.617*10**-5
         self.sro_pixel = sro_pixel
         self.save_sro = save_sro
+        self.kwargs = kwargs
 
     def select_action(self, action_space, temperature):
         self.update_q_params(**{"temperature": temperature})
@@ -101,7 +103,10 @@ class RLSimulator:
         return action, action_probs, Q, sro_list
 
     def step(self, temperature=None, random=False):
-        action_space = get_action_space(self.env)
+        if self.kwargs.get("lattice_parameter", None) is not None:
+            action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
+        else:
+            action_space = get_action_space(self.env)
         if random:
             act_id = np.random.choice(len(action_space))
             act_probs = np.array([])
@@ -173,7 +178,10 @@ class RLSimulator:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
             else:
                 new_T = simulation_params["temperature"]
-            action_space = get_action_space(self.env)
+            if self.kwargs.get("lattice_parameter", None) is not None:
+                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
+            else:
+                action_space = get_action_space(self.env)
             act_id, _, Q, sro_list = self.select_action(action_space, new_T)
             action = action_space[act_id]
             _, _ = self.env.step(action)
@@ -208,7 +216,10 @@ class RLSimulator:
             SROlist = None
         action_idx_list = [None]
         for tstep in range(horizon):
-            action_space = get_action_space(self.env)
+            if self.kwargs.get("lattice_parameter", None) is not None:
+                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
+            else:
+                action_space = get_action_space(self.env)
             act_id, _, Q, sro_list = self.select_action(action_space, temperature)
             action = action_space[act_id]
             _, _ = self.env.step(action)
@@ -285,7 +296,10 @@ class RLSimulator:
         kT = temperature * 8.617 * 10**-5
         action_space_lenght = 0
         while action_space_lenght == 0:
-            action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
+            if self.kwargs.get("lattice_parameter", None) is not None:
+                action_space = get_action_space_mcmc(self.env, action_mode=action_mode, lattice_parameter=self.kwargs["lattice_parameter"])
+            else:
+                action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
             if self.sro_pixel is not None:
                 atoms = self.env.atoms.copy()
                 pos = atoms.get_positions()

@@ -84,7 +84,8 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         simulator = RLSimulator(environment=env,
                                 model=model,
                                 q_params=model_params,
-                                sro_pixel=sro_pixel)
+                                sro_pixel=sro_pixel,
+                                **simulation_params)
         atoms_traj = str(task) + "/XDATCAR" + str(u)
         outputs = simulator.run(horizon=horizon,
                                 logger=logger,
