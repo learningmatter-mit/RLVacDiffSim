@@ -110,10 +110,10 @@ class RLSimulator:
         if random:
             act_id = np.random.choice(len(action_space))
             act_probs = np.array([])
-        elif not random and temperature is not None:
+        elif not random:
+            if temperature is None:
+                raise ValueError("Temperature must be provided if random is False")
             act_id, act_probs, _, _ = self.select_action(action_space, temperature)
-        else:
-            raise ValueError("Temperature must be provided if random is False")
         action = action_space[act_id]
         info = {
             "act": act_id,

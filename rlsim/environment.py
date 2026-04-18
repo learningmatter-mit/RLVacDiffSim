@@ -272,8 +272,9 @@ class Environment:
             images[image].calc = self.get_calculator(**self.calc_params)
             images[image].set_constraint(ase.constraints.FixAtoms(mask=self.mask(moved_atom)))
         optimizer = MDMin(neb, logfile=self.calc_params["relax_log"])
-
-        converged = optimizer.run(fmax=self.calc_params["relax_accuracy"], steps=self.calc_params["max_iter"])
+        relax_accuracy_saddle = self.calc_params.get("relax_accuracy_saddle", 0.1)
+        max_iter_saddle = self.calc_params.get("max_iter_saddle", 200)
+        converged = optimizer.run(fmax=relax_accuracy_saddle, steps=max_iter_saddle)
         if converged:
             Elist = [image.get_potential_energy() for image in images]
             Es = np.max(Elist)
