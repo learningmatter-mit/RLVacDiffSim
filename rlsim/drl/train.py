@@ -51,8 +51,10 @@ def train_DQN(task, logger, config):
     model = registry.get_model_class(model_config["@name"])(gcnn, N_emb=model_config["n_emb"], N_feat=model_config["n_feat"], canonical=True)
     if train_mode == "dqn":
         offline_model = registry.get_model_class(model_config["@name"])(gcnn, N_emb=model_config["n_emb"], N_feat=model_config["n_feat"], canonical=True)
+        dqn_gamma = train_config["update_params"]["gamma"]
     else:
         offline_model = None
+        dqn_gamma = None
     q_params = model_config["params"]
     q_params.update({"temperature":  random.choice(train_config["temperature"])}) # Initialize with random temperature
 
@@ -68,7 +70,7 @@ def train_DQN(task, logger, config):
     for epoch in range(n_episodes):
         atoms = pool[np.random.randint(len(pool))]
         temperature = random.choice(train_config["temperature"])
-        logger.info(f"Episode : {epoch}, T : {temperature}, alpha : {q_params['alpha']}, beta : {q_params['beta']}, gamma : {train_config['update_params']['gamma']}")
+        logger.info(f"Episode : {epoch}, T : {temperature}, alpha : {q_params['alpha']}, beta : {q_params['beta']}, gamma : {dqn_gamma}")
         env = Environment(atoms, calc_params=calc_params)
         env.relax()
         simulator = RLSimulator(environment=env,
