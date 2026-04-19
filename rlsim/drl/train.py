@@ -74,7 +74,7 @@ def train_DQN(task, logger, config):
         simulator = RLSimulator(environment=env,
                                 model=model,
                                 q_params=model_config["params"],
-                                **simulation_config)
+                                **train_config)
         replay_list.append(
             Memory(q_params["alpha"], q_params["beta"], T=temperature)
         )
