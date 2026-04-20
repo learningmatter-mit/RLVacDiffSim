@@ -44,11 +44,11 @@ class Trainer:
         self.q_params = q_params
         # self.kT = q_params["temperature"] * 8.617 * 10**-5
 
-    def update(self, memory_l, mode="context_bandit", **kwargs):
-        if mode == "context_bandit":
-            loss = self.context_bandit_update(memory_l, **kwargs)
-        elif mode == "dqn":
+    def update(self, memory_l, mode="dqn", **kwargs):
+        if mode == "dqn":
             loss = self.dqn_update(memory_l, **kwargs)
+        else:
+            loss = self.context_bandit_update(memory_l, **kwargs)
         return loss
     
     def context_bandit_update(self, memory_l, episode_size, num_epoch, batch_size=8, device="cuda"):
