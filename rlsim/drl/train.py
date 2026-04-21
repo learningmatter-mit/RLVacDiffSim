@@ -45,12 +45,17 @@ def train_DQN(task, logger, config):
         pool = []
         for directory, n_files in zip(poscar_dir, n_poscars):
             pool += [f"{directory}/POSCAR_" + str(i) for i in range(0, n_files)]
-
-    gcnn = registry.get_reaction_model_class(model_config["reaction_model"]["@name"]).load(model_config["reaction_model"]["model_path"])
-
-    model = registry.get_model_class(model_config["@name"])(gcnn, N_emb=model_config["n_emb"], N_feat=model_config["n_feat"], canonical=True)
+    prev_model_path = model_config.get("model_path", None)
+    if prev_model_path is not None:
+        model = registry.get_model_class(model_config["@name"]).load(f"{prev_model_path}")
+    else:
+        gcnn = registry.get_reaction_model_class(model_config["reaction_model"]["@name"]).load(model_config["reaction_model"]["model_path"])
+        model = registry.get_model_class(model_config["@name"])(gcnn, N_emb=model_config["n_emb"], N_feat=model_config["n_feat"], canonical=True)
     if train_mode == "dqn":
-        offline_model = registry.get_model_class(model_config["@name"])(gcnn, N_emb=model_config["n_emb"], N_feat=model_config["n_feat"], canonical=True)
+        if prev_model_path is not None:
+            offline_model = registry.get_model_class(model_config["@name"]).load(f"{prev_model_path}")
+        else:
+            offline_model = registry.get_model_class(model_config["@name"])(gcnn, N_emb=model_config["n_emb"], N_feat=model_config["n_feat"], canonical=True)
         dqn_gamma = train_config["update_params"]["gamma"]
     else:
         offline_model = None
