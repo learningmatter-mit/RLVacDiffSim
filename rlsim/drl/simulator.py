@@ -194,7 +194,10 @@ class RLSimulator:
             elif self.save_sro:
                 SROlist.append(get_sro_from_atoms(self.env.atoms.copy()).tolist())
 
-            action_idx_list.append(act_id.detach().item())
+            if hasattr(act_id, "item"):
+                action_idx_list.append(int(act_id.item()))
+            else:
+                action_idx_list.append(int(act_id))
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {new_T:.0f}, E: {energy:.3f}"
@@ -235,7 +238,12 @@ class RLSimulator:
             elif self.save_sro:
                 SROlist.append(get_sro_from_atoms(self.env.atoms.copy()).tolist())
             clist.append(self.env.atoms.get_positions()[-1].tolist())
-            action_idx_list.append(act_id.detach().item())
+
+            if hasattr(act_id, "item"):
+                action_idx_list.append(int(act_id.item()))
+            else:
+                action_idx_list.append(int(act_id))
+
             if tstep % 10 == 0 or tstep == horizon - 1:
                 logger.info(
                     f"Step: {tstep}, T: {temperature:.0f}, E: {self.env.potential():.3f}"
