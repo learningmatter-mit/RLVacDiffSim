@@ -302,12 +302,13 @@ class RLSimulator:
         accept = False
         base_prob = 0.0
         kT = temperature * 8.617 * 10**-5
-        action_space_lenght = 0
-        while action_space_lenght == 0:
+        action_space_length = 0
+        while action_space_length == 0:
             if self.kwargs.get("lattice_parameter", None) is not None:
                 action_space = get_action_space_mcmc(self.env, action_mode=action_mode, lattice_parameter=self.kwargs["lattice_parameter"])
             else:
                 action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
+            
             if self.sro_pixel is not None:
                 atoms = self.env.atoms.copy()
                 pos = atoms.get_positions()
@@ -319,10 +320,12 @@ class RLSimulator:
                         sro = get_sro_from_atoms(atoms)
                         pos[action[0]] -= np.array(action[1:])*1/0.8
                     else:
-                        pos[action[0]], pos[action[1]] = pos[action[1]], pos[action[0]];
+                        # Use advanced indexing for safe row swapping in numpy
+                        idx = [action[0], action[1]]
+                        pos[idx] = pos[idx[::-1]]
                         atoms.set_positions(pos)
                         sro = get_sro_from_atoms(atoms)
-                        pos[action[0]], pos[action[1]] = pos[action[1]], pos[action[0]];
+                        pos[idx] = pos[idx[::-1]]
                     
                     if len(self.sro_pixel) == 4:
                         diagonal_sro = np.diag(sro)
@@ -342,7 +345,8 @@ class RLSimulator:
         
                 # valid_actions = torch.tensor(valid_actions, device=self.device)
                 action_space = [action_space[i] for i in valid_actions]
-                action_space_lenght = len(action_space)
+            
+            action_space_length = len(action_space)
 
         action = random.choice(action_space)
         E_prev = self.env.potential()
