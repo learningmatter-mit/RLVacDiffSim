@@ -57,7 +57,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
     # if simulation_mode == "lss" or simulation_mode == "mcmc":
     El = []
     output_file = str(task) + "/converge.json"
-    if simulation_mode != "mcmc":
+    if simulation_mode != "mcmc" and simulation_mode != "mmc":
         Ql = []
         output_file_q = str(task) + "/q_values.json"
         if sro_pixel is not None:
@@ -65,7 +65,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
             SROlist = []
             output_file_sro = str(task) + "/sro_values.json"
             soutput_file_sro_chosen = str(task) + "/SRO.json"
-    if simulation_mode == "mcmc":
+    if simulation_mode == "mcmc" or simulation_mode == "mmc":
         SROlist = []
         output_file_sro_accepted = str(task) + "/SRO.json"
     if simulation_mode == "tks":
@@ -95,7 +95,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         El.append(outputs[0])
         with open(output_file, "w") as file:
             json.dump(El, file)
-        if simulation_mode != "mcmc":
+        if simulation_mode != "mcmc" and simulation_mode != "mmc":
             Ql.append(outputs[1])
             with open(output_file_q, "w") as file:
                 json.dump(Ql, file)
@@ -120,7 +120,7 @@ def deploy_RL(task, logger, config, atoms_traj=None):
                 SROlist.append(outputs[2])
                 with open(soutput_file_sro_chosen, "w") as file:
                     json.dump(SROlist, file)
-        if simulation_mode == "mcmc":
+        if simulation_mode == "mcmc" or simulation_mode == "mmc":
             SROlist.append(outputs[1])
             with open(output_file_sro_accepted, "w") as file:
                 json.dump(np.array(SROlist).tolist(), file)

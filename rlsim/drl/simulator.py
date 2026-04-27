@@ -152,7 +152,7 @@ class RLSimulator:
 
         if mode == "lss":
             outputs = self.run_LSS(horizon, atoms_traj, logger, **simulation_params)
-        elif mode == "mcmc":
+        elif mode == "mcmc" or mode == "mmc":
             outputs = self.run_MCMC(horizon, atoms_traj, logger, **simulation_params)
         elif mode == "tks":
             assert not self.q_params["dqn"], "TKS is only available for dqn==False."

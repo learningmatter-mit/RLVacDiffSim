@@ -12,6 +12,8 @@ poscar_dir = "/path/to/poscars" # Change this to the directory where your POSCAR
 
 [deploy.simulation_params]
 temperature = 500
+action_mode = "all" # vacancy_only, all, fix_vacancy
+n_sweeps = 10 # number of sweeps in one step of MC
 
 [deploy.calc_info]
 cutoff = 4.0
