@@ -102,41 +102,65 @@ class RLSimulator:
 
         return action, action_probs, Q, sro_list
 
-    def step(self, temperature=None, random=False):
-        if self.kwargs.get("lattice_parameter", None) is not None:
-            action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
+    def train_step(self, temperature=None, random=False):
+        if self.kwargs.get("lattice_parameter", None) is not None and self.kwargs.get("perfect_lattice_element", None) is not None:
+            action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"], perfect_lattice_element=self.kwargs["perfect_lattice_element"])
         else:
             action_space = get_action_space(self.env)
+        
         if random:
             act_id = np.random.choice(len(action_space))
             act_probs = np.array([])
-        elif not random:
+        else:
             if temperature is None:
                 raise ValueError("Temperature must be provided if random is False")
             act_id, act_probs, _, _ = self.select_action(action_space, temperature)
+            
         action = action_space[act_id]
         info = {
             "act": act_id,
             "act_probs": act_probs.tolist(),
             "act_space": action_space,
             "state": self.env.atoms.copy(),
-            "E_min": self.env.potential(),
         }
+        initial_atoms = self.env.atoms.copy()
+        initial_atoms, fail_min = self.env.relax(initial_atoms)
+        E_min = initial_atoms.get_potential_energy()
+        info["E_min"] = E_min
 
-        E_next, fail = self.env.step(action)
-        self.env.normalize_positions()  # TODO: why do we need is this?
-        if not fail and self.q_params["alpha"] != 0.0:
-            initial_atoms = self.env.initial.copy()
+        # Take step on perfect lattice sites not relaxed ones.
+        
+        self.env.step(action)
+        self.env.normalize_positions()  # Prevents atoms from drifting out of the periodic cell during long simulations
+
+        if not fail_min:
             next_atoms = self.env.atoms.copy()
-            E_s, freq, fail = self.env.saddle(
-                initial_atoms=initial_atoms, next_atoms=next_atoms, moved_atom=action[0], n_points=8
-            )
-            info["E_s"], info["log_freq"] = E_s, freq
+            next_atoms, fail_next = self.env.relax(next_atoms)
+            E_next = next_atoms.get_potential_energy()
+            info["E_next"] = E_next
+            if self.q_params["alpha"] != 0.0 and not fail_next:
+                # initial_atoms = self.env.initial.copy()
+                E_s, freq, fail_saddle = self.env.saddle(
+                    initial_atoms=initial_atoms, next_atoms=next_atoms, moved_atom=action[0], n_points=8
+                )
+                info["E_s"], info["log_freq"] = E_s, freq
+            elif self.q_params["alpha"] == 0.0 and not fail_next:
+                fail_saddle = 0
+                info["E_s"] = 0 # If fail record 0
+                info["log_freq"] = 0 # If fail record 0
+            else:
+                fail_saddle = 1
+                info["E_s"] = 0 # If fail record 0
+                info["log_freq"] = 0 # If fail record 0
         else:
-            info["E_s"] = 0
-            info["log_freq"] = 0
-
-        info["next"], info["fail"], info["E_next"] = self.env.atoms.copy(), fail, E_next
+            fail_next = 1
+            fail_saddle = 1
+            info["E_next"] = 0 # If fail record 0
+            info["E_s"] = 0 # If fail record 0
+            info["log_freq"] = 0 # If fail record 0
+            
+        fail = fail_min + fail_next + fail_saddle
+        info["next"], info["fail"] = self.env.atoms.copy(), fail
         return info
 
     def update_q_params(self, **new_q_params):
@@ -166,7 +190,10 @@ class RLSimulator:
                                            annealing_time=simulation_params["annealing_time"],
                                            T_start=simulation_params["T_start"],
                                            T_end=simulation_params["T_end"])
-        Elist = [self.env.potential()]
+        relaxed_atoms = self.env.atoms.copy()
+        relaxed_atoms, _ = self.env.relax(relaxed_atoms)
+        E0 = relaxed_atoms.get_potential_energy()
+        Elist = [E0] # Record for every ten steps
         Qlist = [[]]
         if self.sro_pixel is not None or self.save_sro:
             SROlist = [get_sro_from_atoms(self.env.atoms.copy()).tolist()]
@@ -178,16 +205,15 @@ class RLSimulator:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
             else:
                 new_T = simulation_params["temperature"]
-            if self.kwargs.get("lattice_parameter", None) is not None:
-                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
+            if self.kwargs.get("lattice_parameter", None) is not None and self.kwargs.get("perfect_lattice_element", None) is not None:
+                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"], perfect_lattice_element=self.kwargs["perfect_lattice_element"])
             else:
                 action_space = get_action_space(self.env)
             act_id, _, Q, sro_list = self.select_action(action_space, new_T)
             action = action_space[act_id]
-            _, _ = self.env.step(action)
+            self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
-            energy = self.env.potential()
-            Elist.append(energy)
+
             Qlist.append(Q.tolist())
             if self.sro_pixel is not None:
                 SROlist.append(sro_list.detach().cpu().numpy().tolist())
@@ -199,8 +225,11 @@ class RLSimulator:
             else:
                 action_idx_list.append(int(act_id))
             if tstep % 10 == 0 or tstep == horizon - 1:
+                relaxed_atoms = self.env.atoms.copy()
+                relaxed_atoms, _ = self.env.relax(relaxed_atoms)
+                Elist.append(relaxed_atoms.get_potential_energy())
                 logger.info(
-                    f"Step: {tstep}, T: {new_T:.0f}, E: {energy:.3f}"
+                    f"Step: {tstep}, T: {new_T:.0f}, E: {Elist[-1]:.3f}"
                 )
         last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
@@ -211,7 +240,10 @@ class RLSimulator:
         clist = [self.env.atoms.get_positions()[-1].tolist()]
         temperature = simulation_params["temperature"]
         kT = temperature * 8.617 * 10**-5
-        Elist = [self.env.potential()]
+        relaxed_atoms = self.env.atoms.copy()
+        relaxed_atoms, _ = self.env.relax(relaxed_atoms)
+        E0 = relaxed_atoms.get_potential_energy()
+        Elist = [E0] # Record for every ten steps
         Qlist = [[]]
         if self.sro_pixel is not None or self.save_sro:
             SROlist = [get_sro_from_atoms(self.env.atoms.copy()).tolist()]
@@ -219,18 +251,17 @@ class RLSimulator:
             SROlist = None
         action_idx_list = [None]
         for tstep in range(horizon):
-            if self.kwargs.get("lattice_parameter", None) is not None:
-                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
+            if self.kwargs.get("lattice_parameter", None) is not None and self.kwargs.get("perfect_lattice_element", None) is not None:
+                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"], perfect_lattice_element=self.kwargs["perfect_lattice_element"])
             else:
                 action_space = get_action_space(self.env)
             act_id, _, Q, sro_list = self.select_action(action_space, temperature)
             action = action_space[act_id]
-            _, _ = self.env.step(action)
+            self.env.step(action)
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
-            Gamma = float(torch.sum(torch.exp(Q/kT)));
+            Gamma = float(torch.sum(torch.exp(Q/kT)))
             dt = 1 / Gamma * 10**-6  # microsecond unit
-            energy = self.env.potential()
-            Elist.append(energy)
+
             tlist.append(tlist[-1] + dt)
             Qlist.append(Q.tolist())
             if self.sro_pixel is not None:
@@ -245,8 +276,11 @@ class RLSimulator:
                 action_idx_list.append(int(act_id))
 
             if tstep % 10 == 0 or tstep == horizon - 1:
+                relaxed_atoms = self.env.atoms.copy()
+                relaxed_atoms, _ = self.env.relax(relaxed_atoms)
+                Elist.append(relaxed_atoms.get_potential_energy())
                 logger.info(
-                    f"Step: {tstep}, T: {temperature:.0f}, E: {self.env.potential():.3f}"
+                    f"Step: {tstep}, T: {temperature:.0f}, E: {Elist[-1]:.3f}"
                 )
         last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
@@ -259,7 +293,10 @@ class RLSimulator:
                                            annealing_time=simulation_params["annealing_time"],
                                            T_start=simulation_params["T_start"],
                                            T_end=simulation_params["T_end"])
-        Elist = [self.env.potential()]
+        atoms = self.env.atoms.copy()
+        atoms, _ = self.env.relax(atoms)
+        E0 = atoms.get_potential_energy()
+        Elist = [E0] # Record for every ten steps
         if self.save_sro or self.sro_pixel is not None:
             atoms = self.env.atoms.copy()
             sro = get_sro_from_atoms(atoms)
@@ -280,10 +317,12 @@ class RLSimulator:
                 SROlist.append(sro.tolist())
             io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
 
-            Elist.append(energy)
             if tstep % 10 == 0 or tstep == horizon - 1:
+                atoms = self.env.atoms.copy()
+                atoms, _ = self.env.relax(atoms)
+                Elist.append(atoms.get_potential_energy())
                 logger.info(
-                    f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {energy:.3f} eV"
+                    f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {Elist[-1]:.3f} eV"
                 )
         last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
@@ -304,8 +343,8 @@ class RLSimulator:
         kT = temperature * 8.617 * 10**-5
         action_space_length = 0
         while action_space_length == 0:
-            if self.kwargs.get("lattice_parameter", None) is not None:
-                action_space = get_action_space_mcmc(self.env, action_mode=action_mode, lattice_parameter=self.kwargs["lattice_parameter"])
+            if self.kwargs.get("lattice_parameter", None) is not None and self.kwargs.get("perfect_lattice_element", None) is not None:
+                action_space = get_action_space_mcmc(self.env, lattice_parameter=self.kwargs["lattice_parameter"], perfect_lattice_element=self.kwargs["perfect_lattice_element"], action_mode=action_mode)
             else:
                 action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
             
@@ -349,8 +388,14 @@ class RLSimulator:
             action_space_length = len(action_space)
 
         action = random.choice(action_space)
-        E_prev = self.env.potential()
-        E_next, fail = self.env.step(action)
+        initial_atoms = self.env.atoms.copy()
+        initial_atoms, fail_min = self.env.relax(initial_atoms)
+        self.env.step(action)
+        next_atoms = self.env.atoms.copy()
+        next_atoms, fail_next = self.env.relax(next_atoms)
+        E_prev = initial_atoms.get_potential_energy()
+        E_next = next_atoms.get_potential_energy()
+        fail = fail_min + fail_next
 
         if not fail:
             energy_diff = (E_next - E_prev) # / self.env.n_atom
@@ -363,9 +408,10 @@ class RLSimulator:
                     pass
         if np.random.rand() < base_prob:
             accept = True
+            energy = E_next
         else:
             self.env.revert()
-        energy = self.env.potential()
+            energy = E_prev
         return energy, accept
 
 

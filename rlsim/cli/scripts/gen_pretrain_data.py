@@ -55,15 +55,18 @@ def gen_pretrain_data(settings):
         atoms_file = pool[np.random.randint(len(pool))]
         logger.info("epoch = " + str(epoch) + ":  " + atoms_file)
         env = Environment(atoms_file, calc_params=calc_params)
-        env.relax()
+        # env.relax()
         simulator = RLSimulator(environment=env, q_params=q_params, **simulation_config)
         replay_list.append(
             Memory(q_params["alpha"], q_params["beta"]) # 1.0 and 0.0 is random
         )
         for tstep in range(horizon):
-            info = simulator.step(random=True)
+            info = simulator.train_step(random=True)
             replay_list[-1].add(info)
-            logger.info("Step = " + str(tstep) + " | " + f"E_s: {info['E_s']:.3f}, E_min: {info['E_min']:.3f}, E_next: {info['E_next']:.3f}, freq: {info['log_freq']:.3f}, fail: {bool(info['fail'])}")
+            if not bool(info['fail']):
+                logger.info("Step = " + str(tstep) + " | " + f"E_barrier: {(info['E_s']-info['E_min']):.3f}, E_min: {info['E_min']:.3f}, E_next: {info['E_next']:.3f}, freq: {info['log_freq']:.3f}, fail: {bool(info['fail'])}")
+            else:
+                logger.info("Step = " + str(tstep) + " | " + f"fail: {bool(info['fail'])}")
         try:
             replay_list[epoch].save(task + "/traj/traj" + str(epoch))
         except:

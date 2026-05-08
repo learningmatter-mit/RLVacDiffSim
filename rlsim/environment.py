@@ -177,8 +177,12 @@ class Environment:
     def forces(self):  # compute force on each atom f = [\vec f_1, ..., \vec f_N]. unit: eV/A
         return self.atoms.get_forces()
 
-    def potential(self):   # compute total potential energy. unit: eV
-        return self.atoms.get_potential_energy()
+    # def potential(self, relaxed_atoms):   # compute total potential energy. unit: eV
+    #     # converge, relaxed_atoms = self.relax(relaxed_atoms)
+    #     # fail = int(norm(self.positions(f="cartesion") - relaxed_atoms.get_positions()) < 0.2) + (
+    #     #     not converge
+    #     # )
+    #     return relaxed_atoms.get_potential_energy() #, fail # E_tot, convergence flag
 
     def freq(self, delta=0.05):
         Hlist = np.argwhere(self.atoms.get_atomic_numbers()==1).T[0]
@@ -190,7 +194,7 @@ class Environment:
             for j in range(3):
                 pos1 = pos.copy()
                 pos1[i][j] += delta
-                self.atoms.set_positions(pos1);
+                self.atoms.set_positions(pos1)
                 Hessian[j] = -(self.forces()-f0)[i]/delta
             prod = np.prod(np.linalg.eigvalsh((Hessian+Hessian.T)/2))
             log_niu_prod += np.log(prod)/2 # + 3*np.log(1.55716*10);
@@ -198,15 +202,20 @@ class Environment:
         self.atoms.set_positions(pos)
         return log_niu_prod
 
-    def relax(self):
-        self.atoms.set_constraint(
-            ase.constraints.FixAtoms(mask=[False] * self.n_atom)
+    def relax(self, atoms: ase.Atoms):
+        relaxed_atoms = atoms.copy()
+        relaxed_atoms.calc = self.get_calculator(**self.calc_params)
+        relaxed_atoms.set_constraint(
+            ase.constraints.FixAtoms(mask=[False] * len(relaxed_atoms))
         )
-        dyn = MDMin(self.atoms, logfile=self.calc_params["relax_log"])
+        dyn = MDMin(relaxed_atoms, logfile=self.calc_params["relax_log"])
         converge = dyn.run(fmax=self.calc_params["relax_accuracy"], steps=self.calc_params["max_iter"])
-        self.pos = self.atoms.get_positions().tolist()
+        # self.pos = self.atoms.get_positions().tolist()
+        fail = int(norm(self.positions(f="cartesion") - relaxed_atoms.get_positions()) < 0.2) + (
+            not converge
+        )
 
-        return converge
+        return relaxed_atoms, fail
 
     def step(self, action: list = []):
         self.action = action
@@ -231,13 +240,13 @@ class Environment:
             self.pos = (self.positions(f="cartesion") + self.act_displace).tolist()
         self.set_atoms(self.pos, convention="cartesion")
 
-        converge = self.relax()
-        fail = int(norm(self.pos_last - self.positions(f="cartesion")) < 0.2) + (
-            not converge
-        )
-        E_next = self.potential()
+        # converge = self.relax()
+        # fail = int(norm(self.pos_last - self.positions(f="cartesion")) < 0.2) + (
+        #     not converge
+        # )
+        # E_next = self.potential()
 
-        return E_next, fail
+        # return E_next, fail
 
     def revert(self):
         self.set_atoms(self.pos_last, convention="cartesion")

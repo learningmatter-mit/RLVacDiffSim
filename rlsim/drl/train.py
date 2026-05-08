@@ -77,7 +77,7 @@ def train_DQN(task, logger, config):
         temperature = random.choice(train_config["temperature"])
         logger.info(f"Episode : {epoch}, T : {temperature}, alpha : {q_params['alpha']}, beta : {q_params['beta']}, gamma : {dqn_gamma}")
         env = Environment(atoms, calc_params=calc_params)
-        env.relax()
+        # env.relax()
         simulator = RLSimulator(environment=env,
                                 model=model,
                                 q_params=model_config["params"],
@@ -86,7 +86,7 @@ def train_DQN(task, logger, config):
             Memory(q_params["alpha"], q_params["beta"], T=temperature)
         )
         for tstep in range(horizon):
-            info = simulator.step(temperature)
+            info = simulator.train_step(temperature)
             replay_list[-1].add(info)
             logger.info(f"  tstep : {tstep}")
         train_config["update_params"].update({"episode_size": int(1 + epoch ** (2 / 3))})
