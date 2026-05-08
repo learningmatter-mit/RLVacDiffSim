@@ -32,9 +32,9 @@ def gen_pretrain_data(settings):
 
     train_labels = simulation_config["train_labels"]
     if "barrier" in train_labels:
-        q_params = {"alpha": 1.0, "beta": 1.0}
+        q_params = {"alpha": 1.0, "beta":0.0}
     else:
-        q_params = {"alpha": 0.0, "beta": 0.0}
+        q_params = {"alpha": 0.0, "beta": 1.0}
     calc_params = simulation_config.pop("calc_info")
     calc_params.update({"relax_log": f"{task}/{calc_params['relax_log']}"})
     n_episodes = simulation_config.pop("n_episodes")
