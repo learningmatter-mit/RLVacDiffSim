@@ -123,6 +123,41 @@ def get_binary_sro_from_atoms(atoms) -> float:
     return alpha_AB
 
 
+def is_l12_phase(atoms, tol: float = 1e-2) -> bool:
+    """
+    Determine if a binary FCC structure is in the L1_2 phase.
+
+    A perfect L1_2 phase (A3B or AB3 in an FCC lattice) is characterized by:
+    1. A stoichiometry of approximately 3:1 (or 1:3).
+    2. A Warren-Cowley SRO parameter α_AB ≈ -1/3.
+       This corresponds to all minority atoms being completely surrounded by
+       majority atoms in their first nearest-neighbor shell.
+
+    Args:
+        atoms: ASE Atoms object.
+        tol: Tolerance for the stoichiometry and SRO parameter.
+
+    Returns:
+        bool: True if the structure is considered to be L1_2, False otherwise.
+    """
+    atomic_numbers = atoms.get_atomic_numbers()
+    species = sorted(set(atomic_numbers.tolist()))
+    if len(species) != 2:
+        return False
+
+    c_A = np.sum(atomic_numbers == species[0]) / len(atomic_numbers)
+    c_B = np.sum(atomic_numbers == species[1]) / len(atomic_numbers)
+
+    # Check for approximately 3:1 or 1:3 stoichiometry
+    if not (np.isclose(c_A, 0.75, atol=tol) or np.isclose(c_B, 0.75, atol=tol)):
+        return False
+
+    alpha_AB = get_binary_sro_from_atoms(atoms)
+    
+    # Perfect L1_2 has alpha_AB = -1/3
+    return bool(np.isclose(alpha_AB, -1/3, atol=tol))
+
+
 def get_binary_sro(atoms_list: list[Atoms]) -> np.ndarray:
     """
     Compute the Warren-Cowley SRO parameter for each frame in a binary-alloy
