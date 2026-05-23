@@ -158,7 +158,7 @@ def is_l12_phase(atoms, tol: float = 1e-2) -> bool:
     return bool(np.isclose(alpha_AB, -1/3, atol=tol))
 
 
-def get_binary_sro(atoms_list: list[Atoms]) -> np.ndarray:
+def get_binary_sro(atoms_list: list[Atoms], return_l12_phase: bool = False, tol: float = 1e-2) -> np.ndarray | tuple[np.ndarray, list[bool]]:
     """
     Compute the Warren-Cowley SRO parameter for each frame in a binary-alloy
     trajectory.
@@ -175,6 +175,8 @@ def get_binary_sro(atoms_list: list[Atoms]) -> np.ndarray:
 
     nframe = len(atoms_list)
     alpha = np.zeros(nframe)
+    if return_l12_phase:
+        l12_phase_list = []
 
     for i in tqdm(range(nframe), desc="Processing trajectories"):
         atoms = atoms_list[i]
@@ -200,4 +202,10 @@ def get_binary_sro(atoms_list: list[Atoms]) -> np.ndarray:
 
         alpha[i] = 1.0 - (n_AB / total_pairs) / (c_A * c_B)
 
-    return alpha
+        if return_l12_phase:
+            l12_phase_list.append(is_l12_phase(atoms, tol=tol))
+
+    if return_l12_phase:
+        return alpha, l12_phase_list
+    else:
+        return alpha

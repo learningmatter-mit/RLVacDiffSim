@@ -6,7 +6,7 @@ import click
 from ase import io
 from tqdm import tqdm
 
-from rlsim.utils.sro import get_sro
+from rlsim.utils.sro import get_sro, get_binary_sro
 
 
 def get_info(atoms):
@@ -16,20 +16,30 @@ def get_info(atoms):
 
 
 def process_trajectory(args):
-    traj, save_dir, index = args
+    traj, save_dir, index, return_l12_phase = args
     info = get_info(traj[0])  # Assuming you want the info from the first frame
-    sro_results = get_sro(traj)  # Process the full trajectory for SRO results
+    
+    if len(info["species"]) == 2:
+        if return_l12_phase:
+            alpha, l12_phase = get_binary_sro(traj, return_l12_phase=return_l12_phase)
+            sro_results = {"alpha": alpha.tolist(), "l12_phase": l12_phase.tolist()}
+        else:
+            alpha = get_binary_sro(traj, return_l12_phase=return_l12_phase)
+            sro_results = {"alpha": alpha.tolist()}
+    else:
+        sro_results = get_sro(traj)  # Process the full trajectory for SRO results
     # Save results as a JSON file
     save_path = os.path.join(save_dir, f"{index}_SRO_results.json")
     with open(save_path, "w") as file:
-        json.dump({"SRO": sro_results.tolist(), "info": info}, file)
+        json.dump({"SRO": sro_results, "info": info}, file)
         
 
 @click.command()
 @click.option("-i", "--input_dir", required=True, type=click.Path(exists=True), help="Input dir containing diffussion info")
 @click.option("-n", "--num_files", required=True, type=int, help="numer of XDATCAR files")
 @click.option("-s", "--save_dir", required=True, default="./", help="Directory to save the results")
-def main(input_dir, num_files, save_dir):
+@click.option("--l12", "--l12", default=False, is_flag=True, help="Whether to return L12 phase")
+def main(input_dir, num_files, save_dir, l12):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
     # traj_l = []
