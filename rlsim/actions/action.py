@@ -9,7 +9,7 @@ from ase.build import bulk
 from ase.geometry import get_distances
 
 
-def get_action_space(config, lattice_parameter=3.615, perfect_lattice_element="Cu"):
+def get_action_space(config, lattice_parameter=3.615):
     """
     For CrCoNi: perfect_lattice_element: Ni, lattice_parameters: 3.528
     For Cu3Au: perfect_lattice_element: Cu, lattice_parameters: 3.615
@@ -19,7 +19,8 @@ def get_action_space(config, lattice_parameter=3.615, perfect_lattice_element="C
 
     Nrepeat = np.round(cell.diagonal() / lattice_parameter).astype(int)
     # Step 1: Build perfect Nrepeat x Nrepeat x Nrepeat FCC lattice sites
-    perfect = bulk(perfect_lattice_element, 'fcc', a=lattice_parameter, cubic=True).repeat(Nrepeat)
+    # perfect_lattice_element is not used since all lattice sites are generated from FCC structure
+    perfect = bulk("Cu", 'fcc', a=lattice_parameter, cubic=True).repeat(Nrepeat)
     lattice_sites = perfect.get_positions()
 
     # Step 2: Assign each atom to its nearest lattice site via MIC distance
@@ -59,7 +60,7 @@ def get_action_space(config, lattice_parameter=3.615, perfect_lattice_element="C
 
     return actions
 
-def get_action_space_mcmc(config, lattice_parameter=3.615, perfect_lattice_element="Cu", action_mode="vacancy_only"):
+def get_action_space_mcmc(config, lattice_parameter=3.615, action_mode="vacancy_only"):
     """
     First choosing focal atom and generate actions for that site
     Uses perfect lattice mapping to efficiently find valid actions without trial displacements.
@@ -67,7 +68,6 @@ def get_action_space_mcmc(config, lattice_parameter=3.615, perfect_lattice_eleme
     Args:
         config (Environment): Environment
         lattice_parameter (float): Lattice parameter for a unit cell. Defaults to 3.615.
-        perfect_lattice_element (str): Element to build perfect FCC. Defaults to "Cu".
         action_mode (str): Types of actions. Defaults to "vacancy_only".
 
     Returns:
@@ -78,7 +78,8 @@ def get_action_space_mcmc(config, lattice_parameter=3.615, perfect_lattice_eleme
 
     Nrepeat = np.round(cell.diagonal() / lattice_parameter).astype(int)
     # Step 1: Build perfect Nrepeat x Nrepeat x Nrepeat FCC lattice sites
-    perfect = bulk(perfect_lattice_element, 'fcc', a=lattice_parameter, cubic=True).repeat(Nrepeat)
+    # perfect_lattice_element is not used since all lattice sites are generated from FCC structure
+    perfect = bulk("Cu", 'fcc', a=lattice_parameter, cubic=True).repeat(Nrepeat)
     lattice_sites = perfect.get_positions()
 
     # Step 2: Assign each atom to its nearest lattice site via MIC distance

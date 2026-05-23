@@ -103,8 +103,8 @@ class RLSimulator:
         return action, action_probs, Q, sro_list
 
     def train_step(self, temperature=None, random=False):
-        if self.kwargs.get("lattice_parameter", None) is not None and self.kwargs.get("perfect_lattice_element", None) is not None:
-            action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"], perfect_lattice_element=self.kwargs["perfect_lattice_element"])
+        if self.kwargs.get("lattice_parameter", None) is not None:
+            action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
         else:
             action_space = get_action_space(self.env)
         
@@ -205,8 +205,8 @@ class RLSimulator:
                 new_T = T_scheduler.get_temperature(tstep=tstep)
             else:
                 new_T = simulation_params["temperature"]
-            if self.kwargs.get("lattice_parameter", None) is not None and self.kwargs.get("perfect_lattice_element", None) is not None:
-                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"], perfect_lattice_element=self.kwargs["perfect_lattice_element"])
+            if self.kwargs.get("lattice_parameter", None) is not None:
+                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
             else:
                 action_space = get_action_space(self.env)
             act_id, _, Q, sro_list = self.select_action(action_space, new_T)
@@ -251,8 +251,8 @@ class RLSimulator:
             SROlist = None
         action_idx_list = [None]
         for tstep in range(horizon):
-            if self.kwargs.get("lattice_parameter", None) is not None and self.kwargs.get("perfect_lattice_element", None) is not None:
-                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"], perfect_lattice_element=self.kwargs["perfect_lattice_element"])
+            if self.kwargs.get("lattice_parameter", None) is not None:
+                action_space = get_action_space(self.env, lattice_parameter=self.kwargs["lattice_parameter"])
             else:
                 action_space = get_action_space(self.env)
             act_id, _, Q, sro_list = self.select_action(action_space, temperature)
@@ -343,8 +343,8 @@ class RLSimulator:
         kT = temperature * 8.617 * 10**-5
         action_space_length = 0
         while action_space_length == 0:
-            if self.kwargs.get("lattice_parameter", None) is not None and self.kwargs.get("perfect_lattice_element", None) is not None:
-                action_space = get_action_space_mcmc(self.env, lattice_parameter=self.kwargs["lattice_parameter"], perfect_lattice_element=self.kwargs["perfect_lattice_element"], action_mode=action_mode)
+            if self.kwargs.get("lattice_parameter", None) is not None:
+                action_space = get_action_space_mcmc(self.env, lattice_parameter=self.kwargs["lattice_parameter"], action_mode=action_mode)
             else:
                 action_space = get_action_space_mcmc(self.env, action_mode=action_mode)
             
