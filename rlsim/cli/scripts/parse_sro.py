@@ -20,14 +20,19 @@ def process_trajectory(args):
     info = get_info(traj[0])  # Assuming you want the info from the first frame
     
     if len(info["species"]) == 2:
+        print("Processing binary system...")
         if return_l12_phase:
+            print("Returning alpha and L12 phase...")
             alpha, l12_phase = get_binary_sro(traj, return_l12_phase=return_l12_phase)
             sro_results = {"alpha": alpha.tolist(), "l12_phase": l12_phase.tolist()}
         else:
+            print("Returning alpha only...")
             alpha = get_binary_sro(traj, return_l12_phase=return_l12_phase)
             sro_results = {"alpha": alpha.tolist()}
     else:
+        print("Processing ternary/other system...")
         sro_results = get_sro(traj)  # Process the full trajectory for SRO results
+        
     # Save results as a JSON file
     save_path = os.path.join(save_dir, f"{index}_SRO_results.json")
     with open(save_path, "w") as file:
@@ -42,12 +47,10 @@ def process_trajectory(args):
 def main(input_dir, num_files, save_dir, l12):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
-    # traj_l = []
     for i in tqdm(range(num_files), desc="Reading trajectories"):
         filename = os.path.join(input_dir, f"XDATCAR{i}")
         traj = io.read(filename, index=':')
         process_trajectory((traj, save_dir, i, l12))
-        # traj_l.append(traj)
 
     # # Prepare arguments for multiprocessing
     # args = [(traj, save_dir, i, l12) for i, traj in enumerate(traj_l)]
