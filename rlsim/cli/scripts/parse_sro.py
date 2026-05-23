@@ -46,11 +46,11 @@ def main(input_dir, num_files, save_dir, l12):
     for i in tqdm(range(num_files), desc="Reading trajectories"):
         filename = os.path.join(input_dir, f"XDATCAR{i}")
         traj = io.read(filename, index=':')
-        process_trajectory((traj, save_dir, i))
+        process_trajectory((traj, save_dir, i, l12))
         # traj_l.append(traj)
 
     # # Prepare arguments for multiprocessing
-    # args = [(traj, save_dir, i) for i, traj in enumerate(traj_l)]
+    # args = [(traj, save_dir, i, l12) for i, traj in enumerate(traj_l)]
     # # Use multiprocessing pool
     # with mp.Pool(num_files) as pool:
     #     list(tqdm(pool.imap(process_trajectory, args), total=len(traj_l), desc="Processing trajectories"))
