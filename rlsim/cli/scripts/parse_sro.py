@@ -23,8 +23,8 @@ def process_trajectory(args):
         print("Processing binary system...")
         if return_l12_phase:
             print("Returning alpha and L12 phase...")
-            alpha, l12_phase = get_binary_sro(traj, return_l12_phase=return_l12_phase)
-            sro_results = {"alpha": alpha.tolist(), "l12_phase": l12_phase.tolist()}
+            alpha, l12_phase_list = get_binary_sro(traj, return_l12_phase=return_l12_phase)
+            sro_results = {"alpha": alpha.tolist(), "l12_phase": l12_phase_list}
         else:
             print("Returning alpha only...")
             alpha = get_binary_sro(traj, return_l12_phase=return_l12_phase)
@@ -43,7 +43,7 @@ def process_trajectory(args):
 @click.option("-i", "--input_dir", required=True, type=click.Path(exists=True), help="Input dir containing diffussion info")
 @click.option("-n", "--num_files", required=True, type=int, help="numer of XDATCAR files")
 @click.option("-s", "--save_dir", required=True, default="./", help="Directory to save the results")
-@click.option("--l12", "--l12", default=False, is_flag=True, help="Whether to return L12 phase")
+@click.option("--l12", default=False, is_flag=True, help="Whether to return L12 phase")
 def main(input_dir, num_files, save_dir, l12):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
