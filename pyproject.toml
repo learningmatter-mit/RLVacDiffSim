@@ -43,6 +43,7 @@ rlsim-parse_diffusion = "rlsim.cli.scripts.parse_diffusivity:main"
 rlsim-parse_memory = "rlsim.cli.scripts.parse_memory:main"
 rlsim-parse_sro = "rlsim.cli.scripts.parse_sro:main"
 rlsim-parse_time_dataset = "rlsim.cli.scripts.parse_time_dataset:main"
+rlsim-parse_time_dataset_binary = "rlsim.cli.scripts.parse_time_dataset_binary:main"
 
 [project.optional-dependencies]
 dev = ["black", "isort", "flake8"]

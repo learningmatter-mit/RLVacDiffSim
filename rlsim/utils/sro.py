@@ -1,6 +1,8 @@
 import numpy as np
 from tqdm import tqdm
 from ase import Atoms
+from ase.build import bulk
+from ase.geometry import get_distances
 
 def get_sro(atoms_list: list[Atoms]) -> np.ndarray:
     nframe = len(atoms_list)
@@ -123,6 +125,124 @@ def get_binary_sro_from_atoms(atoms) -> float:
     return alpha_AB
 
 
+def get_binary_lro_from_atoms(atoms, ref_atoms=None) -> float:
+    """
+    Compute the long-range order (LRO) parameter for a binary FCC alloy (L1_2 phase by default).
+
+    If ref_atoms is provided, the function computes the LRO parameter relative to the
+    reference structure. This general Bragg-Williams LRO parameter is defined as:
+        η = (r - c) / (1 - ν)
+    where:
+        - c is the overall concentration of the minority species.
+        - ν is the fraction of sites occupied by the minority species in the perfect reference structure.
+        - r is the fraction of correct reference sites occupied by the minority species.
+
+    If ref_atoms is None, it defaults to the L1_2 phase where:
+        - ν = 0.25 is the fraction of sites belonging to the minority sublattice.
+        - r is the fraction of minority sublattice sites occupied by the minority species.
+    """
+    atomic_numbers = atoms.get_atomic_numbers()
+    species = sorted(set(atomic_numbers.tolist()))
+    assert len(species) == 2, "This function is for binary systems only."
+
+    # Identify the minority species in the current structure
+    c_A = np.sum(atomic_numbers == species[0]) / len(atomic_numbers)
+    c_B = np.sum(atomic_numbers == species[1]) / len(atomic_numbers)
+    if c_A < c_B:
+        minority_specie = species[0]
+        c_min = c_A
+    else:
+        minority_specie = species[1]
+        c_min = c_B
+
+    cell = atoms.get_cell()
+    pbc = atoms.get_pbc()
+    atom_pos = atoms.get_positions()
+
+    if ref_atoms is not None:
+        ref_atomic_numbers = ref_atoms.get_atomic_numbers()
+        ref_species = sorted(set(ref_atomic_numbers.tolist()))
+        assert len(ref_species) == 2, "Reference structure must be binary."
+
+        # Identify minority species in reference structure to define the target sublattice
+        c_ref_A = np.sum(ref_atomic_numbers == ref_species[0]) / len(ref_atomic_numbers)
+        c_ref_B = np.sum(ref_atomic_numbers == ref_species[1]) / len(ref_atomic_numbers)
+        if c_ref_A < c_ref_B:
+            ref_minority_specie = ref_species[0]
+            nu = c_ref_A
+        else:
+            ref_minority_specie = ref_species[1]
+            nu = c_ref_B
+
+        # Map actual atoms to reference sites
+        ref_sites = ref_atoms.get_positions()
+        _, dists = get_distances(atom_pos, ref_sites, cell=cell, pbc=pbc)
+        atom_to_site = np.argmin(dists, axis=1)
+
+        # Correct sites for reference minority species
+        correct_sites_mask = (ref_atomic_numbers == ref_minority_specie)
+        
+        # Check current minority species occupancy on those sites
+        curr_minority_mask = (atomic_numbers == ref_minority_specie)
+        mapped_sites = atom_to_site[curr_minority_mask]
+        
+        correct_count = np.sum(correct_sites_mask[mapped_sites])
+        total_correct_sites = np.sum(correct_sites_mask)
+        
+        r = correct_count / total_correct_sites
+        c_min_ref = np.sum(curr_minority_mask) / len(atomic_numbers)
+        
+        eta = (r - c_min_ref) / (1.0 - nu)
+        return max(0.0, float(eta))
+
+    # Default to L1_2 phase (nu = 0.25)
+    # Estimate nearest-neighbour distance and lattice parameter
+    dist_all = atoms.get_all_distances(mic=True)
+    dist_flat = dist_all.flatten()
+    dist_flat = dist_flat[dist_flat > 0.1]
+    NN_dist = np.min(dist_flat)
+    lattice_parameter = np.sqrt(2) * NN_dist
+
+    # Build perfect FCC reference lattice of the same dimensions
+    Nrepeat = np.round(cell.diagonal() / lattice_parameter).astype(int)
+    perfect = bulk("Cu", 'fcc', a=lattice_parameter, cubic=True).repeat(Nrepeat)
+    lattice_sites = perfect.get_positions()
+
+    # Map actual atoms to the nearest perfect lattice sites
+    _, dists = get_distances(atom_pos, lattice_sites, cell=cell, pbc=pbc)
+    atom_to_site = np.argmin(dists, axis=1)
+
+    # Determine sublattice for each perfect lattice site
+    site_keys = np.round(lattice_sites / lattice_parameter * 2).astype(int) % 2
+    raw_indices = np.sum(site_keys * [1, 2, 4], axis=1)
+    unique_vals = sorted(np.unique(raw_indices))
+    
+    if len(unique_vals) != 4:
+        raise ValueError(f"Structure is not a valid FCC supercell (expected 4 sublattices, found {len(unique_vals)}).")
+    
+    val_to_idx = {val: idx for idx, val in enumerate(unique_vals)}
+    site_sublattices = np.array([val_to_idx[val] for val in raw_indices])
+
+    # Find which perfect sites are occupied by the minority species
+    minority_mask = (atomic_numbers == minority_specie)
+    minority_sites = atom_to_site[minority_mask]
+
+    # Calculate occupancy of minority species on each sublattice
+    sites_per_sublattice = len(perfect) // 4
+    sublattice_counts = np.zeros(4, dtype=int)
+    for site_idx in minority_sites:
+        subl = site_sublattices[site_idx]
+        sublattice_counts[subl] += 1
+
+    # The minority sublattice is the one with the maximum occupancy of the minority species
+    r = np.max(sublattice_counts) / sites_per_sublattice
+
+    # Bragg-Williams LRO parameter
+    nu = 0.25
+    eta = (r - c_min) / (1.0 - nu)
+    return max(0.0, float(eta))
+
+
 def is_l12_phase(atoms, tol: float = 1e-2) -> bool:
     """
     Determine if a binary FCC structure is in the L1_2 phase.
@@ -209,3 +329,151 @@ def get_binary_sro(atoms_list: list[Atoms], return_l12_phase: bool = False, tol:
         return alpha, l12_phase_list
     else:
         return alpha
+
+
+def get_binary_lro(atoms_list: list[Atoms], ref_atoms=None) -> np.ndarray:
+    """
+    Compute the long-range order (LRO) parameter for each frame in a binary-alloy
+    trajectory.
+
+    If ref_atoms is provided, the LRO parameter is computed relative to the given
+    perfectly ordered reference structure.
+    """
+    nframe = len(atoms_list)
+    lro = np.zeros(nframe)
+
+    if nframe == 0:
+        return lro
+
+    if ref_atoms is not None:
+        ref_atomic_numbers = ref_atoms.get_atomic_numbers()
+        ref_species = sorted(set(ref_atomic_numbers.tolist()))
+        assert len(ref_species) == 2, "Reference structure must be binary."
+
+        c_ref_A = np.sum(ref_atomic_numbers == ref_species[0]) / len(ref_atomic_numbers)
+        c_ref_B = np.sum(ref_atomic_numbers == ref_species[1]) / len(ref_atomic_numbers)
+        if c_ref_A < c_ref_B:
+            ref_minority_specie = ref_species[0]
+            nu = c_ref_A
+        else:
+            ref_minority_specie = ref_species[1]
+            nu = c_ref_B
+
+        ref_sites = ref_atoms.get_positions()
+        total_correct_sites = np.sum(ref_atomic_numbers == ref_minority_specie)
+        correct_sites_mask = (ref_atomic_numbers == ref_minority_specie)
+
+        for i in tqdm(range(nframe), desc="Processing LRO trajectories"):
+            atoms = atoms_list[i]
+            curr_atomic_numbers = atoms.get_atomic_numbers()
+            curr_cell = atoms.get_cell()
+            curr_pbc = atoms.get_pbc()
+            curr_pos = atoms.get_positions()
+
+            _, dists = get_distances(curr_pos, ref_sites, cell=curr_cell, pbc=curr_pbc)
+            atom_to_site = np.argmin(dists, axis=1)
+
+            curr_minority_mask = (curr_atomic_numbers == ref_minority_specie)
+            mapped_sites = atom_to_site[curr_minority_mask]
+
+            correct_count = np.sum(correct_sites_mask[mapped_sites])
+            r = correct_count / total_correct_sites
+            c_min_ref = np.sum(curr_minority_mask) / len(curr_atomic_numbers)
+
+            eta = (r - c_min_ref) / (1.0 - nu)
+            lro[i] = max(0.0, float(eta))
+
+        return lro
+
+    # Default to L1_2 phase (nu = 0.25)
+    # Initialize reference lattice using the first frame
+    ref_atoms_init = atoms_list[0]
+    atomic_numbers = ref_atoms_init.get_atomic_numbers()
+    species = sorted(set(atomic_numbers.tolist()))
+    assert len(species) == 2, "This function is for binary systems only."
+
+    c_A = np.sum(atomic_numbers == species[0]) / len(atomic_numbers)
+    c_B = np.sum(atomic_numbers == species[1]) / len(atomic_numbers)
+    if c_A < c_B:
+        minority_specie = species[0]
+    else:
+        minority_specie = species[1]
+
+    cell = ref_atoms_init.get_cell()
+
+    # Estimate nearest-neighbour distance and lattice parameter
+    dist_all = ref_atoms_init.get_all_distances(mic=True)
+    dist_flat = dist_all.flatten()
+    dist_flat = dist_flat[dist_flat > 0.1]
+    NN_dist = np.min(dist_flat)
+    lattice_parameter = np.sqrt(2) * NN_dist
+
+    # Build perfect FCC reference lattice
+    Nrepeat = np.round(cell.diagonal() / lattice_parameter).astype(int)
+    perfect = bulk("Cu", 'fcc', a=lattice_parameter, cubic=True).repeat(Nrepeat)
+    lattice_sites = perfect.get_positions()
+    sites_per_sublattice = len(perfect) // 4
+
+    # Determine sublattice for each perfect lattice site
+    site_keys = np.round(lattice_sites / lattice_parameter * 2).astype(int) % 2
+    raw_indices = np.sum(site_keys * [1, 2, 4], axis=1)
+    unique_vals = sorted(np.unique(raw_indices))
+    if len(unique_vals) != 4:
+        raise ValueError(f"Structure is not a valid FCC supercell (expected 4 sublattices, found {len(unique_vals)}).")
+    val_to_idx = {val: idx for idx, val in enumerate(unique_vals)}
+    site_sublattices = np.array([val_to_idx[val] for val in raw_indices])
+
+    nu = 0.25
+
+    for i in tqdm(range(nframe), desc="Processing LRO trajectories"):
+        atoms = atoms_list[i]
+        curr_atomic_numbers = atoms.get_atomic_numbers()
+        curr_cell = atoms.get_cell()
+        curr_pbc = atoms.get_pbc()
+        curr_pos = atoms.get_positions()
+
+        # Check if cell has changed (e.g. in NPT simulations)
+        if not np.allclose(curr_cell, cell):
+            cell = curr_cell
+            # Recalculate NN_dist and lattice_parameter
+            dist_all = atoms.get_all_distances(mic=True)
+            dist_flat = dist_all.flatten()
+            dist_flat = dist_flat[dist_flat > 0.1]
+            NN_dist = np.min(dist_flat)
+            lattice_parameter = np.sqrt(2) * NN_dist
+            
+            # Regenerate perfect lattice and sublattices
+            Nrepeat = np.round(cell.diagonal() / lattice_parameter).astype(int)
+            perfect = bulk("Cu", 'fcc', a=lattice_parameter, cubic=True).repeat(Nrepeat)
+            lattice_sites = perfect.get_positions()
+            sites_per_sublattice = len(perfect) // 4
+            
+            site_keys = np.round(lattice_sites / lattice_parameter * 2).astype(int) % 2
+            raw_indices = np.sum(site_keys * [1, 2, 4], axis=1)
+            unique_vals = sorted(np.unique(raw_indices))
+            if len(unique_vals) != 4:
+                raise ValueError(f"Structure is not a valid FCC supercell (expected 4 sublattices, found {len(unique_vals)}).")
+            val_to_idx = {val: idx for idx, val in enumerate(unique_vals)}
+            site_sublattices = np.array([val_to_idx[val] for val in raw_indices])
+
+        # Overall concentration of the minority species in the current frame
+        c_min = np.sum(curr_atomic_numbers == minority_specie) / len(curr_atomic_numbers)
+
+        # Map actual atoms to reference lattice sites
+        _, dists = get_distances(curr_pos, lattice_sites, cell=curr_cell, pbc=curr_pbc)
+        atom_to_site = np.argmin(dists, axis=1)
+
+        # Count minority atoms on each sublattice
+        minority_mask = (curr_atomic_numbers == minority_specie)
+        minority_sites = atom_to_site[minority_mask]
+
+        sublattice_counts = np.zeros(4, dtype=int)
+        for site_idx in minority_sites:
+            subl = site_sublattices[site_idx]
+            sublattice_counts[subl] += 1
+
+        r = np.max(sublattice_counts) / sites_per_sublattice
+        eta = (r - c_min) / (1.0 - nu)
+        lro[i] = max(0.0, float(eta))
+
+    return lro

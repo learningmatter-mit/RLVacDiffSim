@@ -6,7 +6,7 @@ import click
 from ase import io
 from tqdm import tqdm
 
-from rlsim.utils.sro import get_sro, get_binary_sro
+from rlsim.utils.sro import get_sro, get_binary_sro, get_binary_lro
 
 
 def get_info(atoms):
@@ -22,9 +22,10 @@ def process_trajectory(args):
     if len(info["species"]) == 2:
         print("Processing binary system...")
         if return_l12_phase:
-            print("Returning alpha and L12 phase...")
+            print("Returning alpha, L12 phase, and LRO...")
             alpha, l12_phase_list = get_binary_sro(traj, return_l12_phase=return_l12_phase)
-            sro_results = {"alpha": alpha.tolist(), "l12_phase": l12_phase_list}
+            lro = get_binary_lro(traj)
+            sro_results = {"alpha": alpha.tolist(), "l12_phase": l12_phase_list, "lro": lro.tolist()}
         else:
             print("Returning alpha only...")
             alpha = get_binary_sro(traj, return_l12_phase=return_l12_phase)
