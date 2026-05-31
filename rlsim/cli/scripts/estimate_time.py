@@ -43,7 +43,7 @@ def estimate_time(model, temperature, defect, traj_l, time_file, batch_size, dev
         datas_list = []
         print(f"Traj {i+1}/{len(traj_l)}.")
         for atoms in traj:
-            data = AtomsGraph.from_ase(atoms, model.cutoff, read_properties=False, neighborlist_backend="torch")
+            data = AtomsGraph.from_ase(atoms, model.cutoff, read_properties=False, neighborlist_backend="ase")
             data.T = torch.as_tensor(temperature,
                             dtype=torch.get_default_dtype(),
                             device=data["elems"].device)
