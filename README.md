@@ -11,6 +11,10 @@ cuda version: 12.1
 
 Note that in most cases, different version of packages should also work. We list exactly the versions in our calculations in case version inconsistency issue occurs. If users intend to run the program on a cpu device, the cuda package is not needed.
 
+Optional cuEquivariance acceleration requires PyTorch 2.5.1 (CUDA 12.4),
+`mace-torch==0.3.16`, `cuequivariance==0.6.1`,
+`cuequivariance-torch==0.6.1`, and `e3nn==0.4.4`.
+
 ## Installation guide
 ### Create conda envrionment
 

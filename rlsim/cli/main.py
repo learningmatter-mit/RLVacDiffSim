@@ -8,6 +8,7 @@ from rlsim.drl.deploy import deploy_RL
 from rlsim.drl.train import train_DQN
 from rlsim.time.train import TimeTrainer
 from rlsim.utils.logger import setup_logger
+from rlsim.utils.output import artifact_filename
 
 
 @click.command()
@@ -45,9 +46,11 @@ def main(simulation, config_name):
         config = toml.load(f)
         task = config.pop("task")
         logger_config = config.pop("logger")
+    output_name = config.get("deploy", {}).get("output_name")
     if task not in os.listdir():
         os.makedirs(task, exist_ok=True)
-    log_filename = f"{task}/{logger_config['filename']}.log"
+    log_name = artifact_filename(output_name, f"{logger_config['filename']}.log")
+    log_filename = os.path.join(task, log_name)
     logger = setup_logger(logger_config["name"], log_filename)
     if simulation == "rl-train":
         train_DQN(task, logger, config)
@@ -66,5 +69,4 @@ def main(simulation, config_name):
         t_trainer.train()
     else:
         raise click.UsageError(f"Unsupported simulation type: {simulation}. Please use 'rl-train', 'rl-deploy' or 'time-train'.")
-
 

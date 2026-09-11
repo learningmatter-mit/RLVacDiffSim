@@ -46,10 +46,8 @@ class Environment:
         self.n_atom = len(self.atoms)
         self.pos = self.positions("cartesion").tolist()
         self.calc_params = calc_params
-        if calculator is not None:
-            self.atoms.calc = calculator
-        else:
-            self.atoms.calc = self.get_calculator(**self.calc_params)
+        self.calculator = calculator if calculator is not None else self.get_calculator(**self.calc_params)
+        self.atoms.calc = self.calculator
         self.device = self.calc_params["device"]
     
     @classmethod
@@ -107,10 +105,16 @@ class Environment:
                     )
 
             model_path = get_mace_mp_model_path(model=kwargs.get("model", "medium"), model_path=kwargs.pop("model_path", ""))
+            mace_kwargs = {}
+            if "enable_cueq" in kwargs:
+                mace_kwargs["enable_cueq"] = kwargs["enable_cueq"]
             # Suppress print statements in mace_mp function
             with suppress_print(out=True, err=False):
                 calculator = MACECalculator(
-                    model_paths=model_path, device=device, default_dtype=kwargs.get("default_type", "float32")
+                    model_paths=model_path,
+                    device=device,
+                    default_dtype=kwargs.get("default_type", "float32"),
+                    **mace_kwargs,
                     )
                 
         elif platform == 'kimpy':
@@ -141,7 +145,7 @@ class Environment:
             self.atoms = ase.Atoms(element, cell=cell, pbc=pbc, scaled_positions=pos);
         else:
             self.atoms = ase.Atoms(element, cell=cell, pbc=pbc, positions=pos);
-        self.atoms.calc = self.get_calculator(**self.calc_params)
+        self.atoms.calc = self.calculator
     
     def remove_atom(self, atom_index):
         element = self.atoms.get_atomic_numbers().tolist()
@@ -151,7 +155,7 @@ class Environment:
         del pos[atom_index]
         del element[atom_index]
         self.atoms = ase.Atoms(element, cell=cell, pbc=pbc, scaled_positions=pos)
-        self.atoms.calc = self.get_calculator(**self.calc_params)
+        self.atoms.calc = self.calculator
         return self.atoms
 
     def add_atom(self, frac_coords, atomic_number):
@@ -165,7 +169,7 @@ class Environment:
               cell=cell,
               pbc = pbc,
               scaled_positions=pos)
-        self.atoms.calc = self.get_calculator(**self.calc_params)
+        self.atoms.calc = self.calculator
         return self.atoms
 
     def positions(self, f='frac'):
@@ -204,7 +208,9 @@ class Environment:
 
     def relax(self, atoms: ase.Atoms):
         relaxed_atoms = atoms.copy()
-        relaxed_atoms.calc = self.get_calculator(**self.calc_params)
+        relaxed_atoms.calc = self.calculator
+        if self.calc_params["max_iter"] == 0:
+            return relaxed_atoms, False
         relaxed_atoms.set_constraint(
             ase.constraints.FixAtoms(mask=[False] * len(relaxed_atoms))
         )

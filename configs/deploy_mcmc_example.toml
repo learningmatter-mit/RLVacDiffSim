@@ -1,0 +1,37 @@
+# Example MCMC deployment. Copy this file and edit the paths for your system.
+# Settings not shown here retain their historical defaults.
+task = "test_run_mcmc"
+
+[logger]
+filename = "deploy"
+name = "Deploy"
+
+[deploy]
+horizon = 1000
+mode = "mcmc"
+# Omit output_name to retain the legacy XDATCAR{episode} filenames.
+output_name = "XDATCAR-mcmc-{episode}"
+n_episodes = 1
+n_poscars = 1
+poscar_dir = "/path/to/poscars"
+
+[deploy.simulation_params]
+temperature = 300
+# global_swap is the vacancy-free mode. Legacy values such as "all" and
+# "vacancy_only" remain supported.
+action_mode = "global_swap"
+n_sweeps = 1
+# Larger values reduce output I/O by buffering more frames before flushing.
+trajectory_buffer_size = 100
+
+[deploy.calc_info]
+cutoff = 4.0
+device = "cuda"
+platform = "mace"
+# Zero disables post-swap relaxation; set a positive value for the legacy
+# relaxation workflow.
+max_iter = 10
+relax_accuracy = 0.01
+relax_log = "relax.log"
+# Optional and backwards-compatible; requires the cuEquivariance environment.
+enable_cueq = true

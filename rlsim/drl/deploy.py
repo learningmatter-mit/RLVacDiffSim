@@ -7,12 +7,16 @@ from rgnn.common.registry import registry
 
 from rlsim.drl.simulator import RLSimulator
 from rlsim.environment import Environment
+from rlsim.utils.output import artifact_filename, trajectory_filename
 
 
 def deploy_RL(task, logger, config, atoms_traj=None):
     logger.info(f"Deploy DRL in: {os.path.realpath(task)}")
-    toml.dump(config, open(f"{task}/config_copied.toml", "w"))
     deploy_config = config["deploy"]
+    output_name = deploy_config.get("output_name")
+    config_copy = os.path.join(task, artifact_filename(output_name, "config_copied.toml"))
+    with open(config_copy, "w") as file:
+        toml.dump(config, file)
     model_config = config.get("model", None)
     if model_config is not None:
         model = registry.get_model_class(model_config["@name"]).load(f"{model_config['model_path']}")
@@ -21,8 +25,10 @@ def deploy_RL(task, logger, config, atoms_traj=None):
         model = None
         model_params = None
 
+    output_name = deploy_config.pop("output_name", None)
     calc_params = deploy_config.pop("calc_info")
-    calc_params.update({"relax_log": f"{task}/{calc_params['relax_log']}"})
+    relax_log = artifact_filename(output_name, calc_params["relax_log"])
+    calc_params.update({"relax_log": os.path.join(task, relax_log)})
     horizon = deploy_config.pop("horizon")
     simulation_mode = deploy_config.pop("mode")
     simulation_params = deploy_config.pop("simulation_params")
@@ -56,22 +62,22 @@ def deploy_RL(task, logger, config, atoms_traj=None):
 
     # if simulation_mode == "lss" or simulation_mode == "mcmc":
     El = []
-    output_file = str(task) + "/converge.json"
+    output_file = os.path.join(task, artifact_filename(output_name, "converge.json"))
     if simulation_mode != "mcmc" and simulation_mode != "mmc":
         Ql = []
-        output_file_q = str(task) + "/q_values.json"
+        output_file_q = os.path.join(task, artifact_filename(output_name, "q_values.json"))
+        soutput_file_sro_chosen = os.path.join(task, artifact_filename(output_name, "SRO.json"))
         if sro_pixel is not None:
             SRO_values_list = []
             SROlist = []
-            output_file_sro = str(task) + "/sro_values.json"
-            soutput_file_sro_chosen = str(task) + "/SRO.json"
+            output_file_sro = os.path.join(task, artifact_filename(output_name, "sro_values.json"))
     if simulation_mode == "mcmc" or simulation_mode == "mmc":
         SROlist = []
-        output_file_sro_accepted = str(task) + "/SRO.json"
+        output_file_sro_accepted = os.path.join(task, artifact_filename(output_name, "SRO.json"))
     if simulation_mode == "tks":
         Tl = []
         Cl = []
-        output_file_tks = str(task) + "/diffuse.json"
+        output_file_tks = os.path.join(task, artifact_filename(output_name, "diffuse.json"))
     for u in range(n_episodes):
         if deploy_config.get("all_episodes", False):
             logger.info(f"Episode: {u} (Serial)")
@@ -86,10 +92,13 @@ def deploy_RL(task, logger, config, atoms_traj=None):
                                 q_params=model_params,
                                 sro_pixel=sro_pixel,
                                 **simulation_params)
-        atoms_traj = str(task) + "/XDATCAR" + str(u)
+        trajectory_name = trajectory_filename(output_name, u, n_episodes)
+        atoms_traj = os.path.join(task, trajectory_name)
+        final_atoms = os.path.join(task, artifact_filename(trajectory_name, "last_atoms"))
         outputs = simulator.run(horizon=horizon,
                                 logger=logger,
                                 atoms_traj=atoms_traj,
+                                final_atoms=final_atoms,
                                 mode=simulation_mode,
                                 **simulation_params)
         El.append(outputs[0])

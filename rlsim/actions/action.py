@@ -73,6 +73,18 @@ def get_action_space_mcmc(config, lattice_parameter=3.615, action_mode="vacancy_
     Returns:
         action_space: List of [site, vector] for vacancy jumps, or [site, site] for swaps.
     """
+    if action_mode == "global_swap":
+        numbers = config.atoms.get_atomic_numbers()
+        species = np.unique(numbers)
+        if len(species) < 2:
+            raise ValueError(
+                "action_mode='global_swap' requires at least two chemical species"
+            )
+        species_pair = np.random.choice(species, size=2, replace=False)
+        first = np.random.choice(np.flatnonzero(numbers == species_pair[0]))
+        second = np.random.choice(np.flatnonzero(numbers == species_pair[1]))
+        return [[int(first), int(second)]]
+
     cell = np.array(config.atoms.get_cell())
     pbc = config.atoms.get_pbc()
 

@@ -14,6 +14,7 @@ dqn = false
 [deploy]
 horizon = 5
 mode = "tks"
+output_name = "XDATCAR{episode}"
 n_episodes = 2
 [deploy.simulation_params]
 temperature = 900

@@ -14,6 +14,7 @@ dqn = true
 [deploy]
 horizon = 10 
 mode = "lss" 
+output_name = "XDATCAR{episode}"
 n_episodes = 2 
 n_poscars = 100 
 poscar_dir = "/path/to/poscars" # Change this to the directory where your POSCAR files are stored.

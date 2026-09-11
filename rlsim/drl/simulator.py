@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from ase import Atoms, io
+from ase.io.vasp import _write_xdatcar_config
 from ase.neb import NEB
 from ase.optimize import BFGS, FIRE, MDMin
 from numpy.linalg import norm
@@ -23,6 +24,15 @@ from rlsim.utils.sro import get_sro_from_atoms
 ENERGY_DIFF_LIMIT = 1.5  # in eV
 
 
+def _flush_xdatcar(atoms_traj, frames):
+    if not frames:
+        return
+    with open(atoms_traj, "a") as trajectory:
+        for index, atoms in frames:
+            _write_xdatcar_config(trajectory, atoms, index)
+    frames.clear()
+
+
 class RLSimulator:
     def __init__(self,
                  environment: Environment,
@@ -33,7 +43,7 @@ class RLSimulator:
                  **kwargs
                  ):
         self.env = environment
-        self.calculator = self.env.get_calculator(**self.env.calc_params)
+        self.calculator = self.env.calculator
         self.q_params = q_params
         self.model = model
         self.device = self.env.calc_params["device"]
@@ -171,20 +181,21 @@ class RLSimulator:
             logger,
             atoms_traj: str,
             mode: str = 'lss',
+            final_atoms: str | None = None,
             **simulation_params):
         io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar")
 
         if mode == "lss":
-            outputs = self.run_LSS(horizon, atoms_traj, logger, **simulation_params)
+            outputs = self.run_LSS(horizon, atoms_traj, logger, final_atoms=final_atoms, **simulation_params)
         elif mode == "mcmc" or mode == "mmc":
-            outputs = self.run_MCMC(horizon, atoms_traj, logger, **simulation_params)
+            outputs = self.run_MCMC(horizon, atoms_traj, logger, final_atoms=final_atoms, **simulation_params)
         elif mode == "tks":
             assert not self.q_params["dqn"], "TKS is only available for dqn==False."
-            outputs = self.run_TKS(horizon, atoms_traj, logger, **simulation_params)
+            outputs = self.run_TKS(horizon, atoms_traj, logger, final_atoms=final_atoms, **simulation_params)
         logger.info("Simulation finished.")
         return outputs
 
-    def run_LSS(self, horizon, atoms_traj, logger, **simulation_params):
+    def run_LSS(self, horizon, atoms_traj, logger, final_atoms=None, **simulation_params):
         if simulation_params.get("annealing_time", None) is not None:
             T_scheduler = ThermalAnnealing(total_horizon=horizon,
                                            annealing_time=simulation_params["annealing_time"],
@@ -231,11 +242,11 @@ class RLSimulator:
                 logger.info(
                     f"Step: {tstep}, T: {new_T:.0f}, E: {Elist[-1]:.3f}"
                 )
-        last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
+        last_atoms_filename = final_atoms or atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
         return (Elist, Qlist, SROlist, action_idx_list)
 
-    def run_TKS(self, horizon, atoms_traj, logger, **simulation_params):
+    def run_TKS(self, horizon, atoms_traj, logger, final_atoms=None, **simulation_params):
         tlist = [0]
         clist = [self.env.atoms.get_positions()[-1].tolist()]
         temperature = simulation_params["temperature"]
@@ -282,12 +293,17 @@ class RLSimulator:
                 logger.info(
                     f"Step: {tstep}, T: {temperature:.0f}, E: {Elist[-1]:.3f}"
                 )
-        last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
+        last_atoms_filename = final_atoms or atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
         return (Elist, Qlist, SROlist, action_idx_list, tlist, clist)
     
-    def run_MCMC(self, horizon, atoms_traj, logger, **simulation_params):
+    def run_MCMC(self, horizon, atoms_traj, logger, final_atoms=None, **simulation_params):
         logger.info(f"Action mode: {simulation_params.get('action_mode', 'vacancy_only')}")
+        trajectory_buffer_size = simulation_params.get("trajectory_buffer_size", 100)
+        if not isinstance(trajectory_buffer_size, int) or trajectory_buffer_size < 1:
+            raise ValueError("trajectory_buffer_size must be a positive integer")
+        trajectory_buffer = []
+        next_configuration = 2
         if simulation_params.get("annealing_time", None) is not None:
             T_scheduler = ThermalAnnealing(total_horizon=horizon,
                                            annealing_time=simulation_params["annealing_time"],
@@ -295,8 +311,8 @@ class RLSimulator:
                                            T_end=simulation_params["T_end"])
         atoms = self.env.atoms.copy()
         atoms, _ = self.env.relax(atoms)
-        E0 = atoms.get_potential_energy()
-        Elist = [E0] # Record for every ten steps
+        energy = atoms.get_potential_energy()
+        Elist = [energy] # Record for every ten steps
         if self.save_sro or self.sro_pixel is not None:
             atoms = self.env.atoms.copy()
             sro = get_sro_from_atoms(atoms)
@@ -310,37 +326,49 @@ class RLSimulator:
             else:
                 new_T = simulation_params["temperature"]
             n_sweeps = simulation_params.get("n_sweeps", 1)
-            energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T, action_mode=simulation_params.get("action_mode", "vacancy_only"))
+            energy, _, count = self.mcmc_sweep(n_sweeps=n_sweeps, temperature=new_T, energy=energy, action_mode=simulation_params.get("action_mode", "vacancy_only"))
             if self.save_sro or self.sro_pixel is not None:
                 atoms = self.env.atoms.copy()
                 sro = get_sro_from_atoms(atoms)
                 SROlist.append(sro.tolist())
-            io.write(atoms_traj, self.env.atoms, format="vasp-xdatcar", append=True)
+            trajectory_buffer.append((next_configuration, self.env.atoms.copy()))
+            next_configuration += 1
+            if len(trajectory_buffer) >= trajectory_buffer_size:
+                _flush_xdatcar(atoms_traj, trajectory_buffer)
 
             if tstep % 10 == 0 or tstep == horizon - 1:
-                atoms = self.env.atoms.copy()
-                atoms, _ = self.env.relax(atoms)
-                Elist.append(atoms.get_potential_energy())
+                Elist.append(energy)
                 logger.info(
                     f"Step: {tstep} | Sweep: {count}/{n_sweeps}| T: {new_T:.0f} K | E: {Elist[-1]:.3f} eV"
                 )
-        last_atoms_filename = atoms_traj.replace("XDATCAR", "last_atoms")
+        _flush_xdatcar(atoms_traj, trajectory_buffer)
+        last_atoms_filename = final_atoms or atoms_traj.replace("XDATCAR", "last_atoms")
         io.write(last_atoms_filename, self.env.atoms, format="vasp")
         return (Elist, SROlist)
 
-    def mcmc_sweep(self, n_sweeps, temperature, action_mode="vacancy_only"):
+    def mcmc_sweep(self, n_sweeps, temperature, action_mode="vacancy_only", energy=None):
+        if energy is None:
+            atoms = self.env.atoms.copy()
+            atoms, _ = self.env.relax(atoms)
+            energy = atoms.get_potential_energy()
         accept = False
         count = 0
         while not accept and count < n_sweeps:
-            energy, accept = self.mcmc_step(temperature, action_mode=action_mode)
+            energy, accept = self.mcmc_step(
+                temperature, action_mode=action_mode, energy=energy
+            )
             count += 1
             self.total_mcmc_step += 1
         return energy, accept, count
     
-    def mcmc_step(self, temperature, action_mode):
+    def mcmc_step(self, temperature, action_mode, energy=None):
         accept = False
         base_prob = 0.0
         kT = temperature * 8.617 * 10**-5
+        if energy is None:
+            atoms = self.env.atoms.copy()
+            atoms, _ = self.env.relax(atoms)
+            energy = atoms.get_potential_energy()
         action_space_length = 0
         while action_space_length == 0:
             if self.kwargs.get("lattice_parameter", None) is not None:
@@ -388,16 +416,13 @@ class RLSimulator:
             action_space_length = len(action_space)
 
         action = random.choice(action_space)
-        initial_atoms = self.env.atoms.copy()
-        initial_atoms, fail_min = self.env.relax(initial_atoms)
         self.env.step(action)
         next_atoms = self.env.atoms.copy()
         next_atoms, fail_next = self.env.relax(next_atoms)
-        E_prev = initial_atoms.get_potential_energy()
+        E_prev = energy
         E_next = next_atoms.get_potential_energy()
-        fail = fail_min + fail_next
 
-        if not fail:
+        if not fail_next:
             energy_diff = (E_next - E_prev) # / self.env.n_atom
             if energy_diff < 0.0:
                 base_prob = 1.0  # Automatically accept for sufficiently negative energy diff
@@ -458,4 +483,3 @@ def convert_to_graph_list(atoms: Atoms, actions: List[List[float]]) -> List[Reac
     # dataset = ReactionDataset(dataset_list)
 
     return dataset_list
-
